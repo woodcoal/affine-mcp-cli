@@ -5,7 +5,10 @@ import fetch from "node-fetch";
 
 function decodeBlobContent(content: string): Buffer {
   const normalized = content.trim().replace(/\s+/g, "");
-  const base64Like = normalized.length > 0 && normalized.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(normalized);
+  const base64Like =
+    normalized.length > 0 &&
+    normalized.length % 4 === 0 &&
+    /^[A-Za-z0-9+/=]+$/.test(normalized);
   if (base64Like) {
     try {
       const decoded = Buffer.from(normalized, "base64");
@@ -20,38 +23,17 @@ function decodeBlobContent(content: string): Buffer {
 }
 
 /**
- * 上传 blob 的参数类型
+ * 上传 blob
  */
-export interface UploadBlobParams {
+export async function uploadBlobHandler(params: {
   workspaceId: string;
   content: string;
   filename?: string;
   contentType?: string;
-}
-
-/**
- * 删除 blob 的参数类型
- */
-export interface DeleteBlobParams {
-  workspaceId: string;
-  key: string;
-  permanently?: boolean;
-}
-
-/**
- * 清理 blob 的参数类型
- */
-export interface CleanupBlobsParams {
-  workspaceId: string;
-}
-
-/**
- * 上传 blob
- */
-export async function uploadBlobHandler(params: UploadBlobParams) {
+}) {
   const gql = getGraphQLClient();
   const { workspaceId, content, filename, contentType } = params;
-  
+
   try {
     const endpoint = gql.endpoint;
     const headers = gql.headers;
@@ -61,15 +43,18 @@ export async function uploadBlobHandler(params: UploadBlobParams) {
     const mime = contentType || "application/octet-stream";
 
     const form = new FormData();
-    form.append("operations", JSON.stringify({
-      query: `mutation SetBlob($workspaceId: String!, $blob: Upload!) {
+    form.append(
+      "operations",
+      JSON.stringify({
+        query: `mutation SetBlob($workspaceId: String!, $blob: Upload!) {
         setBlob(workspaceId: $workspaceId, blob: $blob)
       }`,
-      variables: {
-        workspaceId,
-        blob: null
-      }
-    }));
+        variables: {
+          workspaceId,
+          blob: null,
+        },
+      }),
+    );
     form.append("map", JSON.stringify({ "0": ["variables.blob"] }));
     form.append("0", payload, { filename: safeFilename, contentType: mime });
 
@@ -82,7 +67,7 @@ export async function uploadBlobHandler(params: UploadBlobParams) {
       },
       body: form as any,
     });
-    const result = await response.json() as any;
+    const result = (await response.json()) as any;
     if (result.errors?.length) {
       throw new Error(result.errors[0].message);
     }
@@ -98,7 +83,7 @@ export async function uploadBlobHandler(params: UploadBlobParams) {
       filename: safeFilename,
       contentType: mime,
       size: payload.length,
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
     });
   } catch (error: any) {
     return text({ error: error.message });
@@ -108,23 +93,27 @@ export async function uploadBlobHandler(params: UploadBlobParams) {
 /**
  * 删除 blob
  */
-export async function deleteBlobHandler(params: DeleteBlobParams) {
+export async function deleteBlobHandler(params: {
+  workspaceId: string;
+  key: string;
+  permanently?: boolean;
+}) {
   const gql = getGraphQLClient();
   const { workspaceId, key, permanently = false } = params;
-  
+
   try {
     const mutation = `
       mutation DeleteBlob($workspaceId: String!, $key: String!, $permanently: Boolean) {
         deleteBlob(workspaceId: $workspaceId, key: $key, permanently: $permanently)
       }
     `;
-    
+
     const data = await gql.request<{ deleteBlob: boolean }>(mutation, {
       workspaceId,
       key,
-      permanently
+      permanently,
     });
-    
+
     return text({ success: data.deleteBlob, key, workspaceId, permanently });
   } catch (error: any) {
     return text({ error: error.message });
@@ -134,22 +123,26 @@ export async function deleteBlobHandler(params: DeleteBlobParams) {
 /**
  * 清理已删除的 blob
  */
-export async function cleanupBlobsHandler(params: CleanupBlobsParams) {
+export async function cleanupBlobsHandler(params: { workspaceId: string }) {
   const gql = getGraphQLClient();
   const { workspaceId } = params;
-  
+
   try {
     const mutation = `
       mutation ReleaseDeletedBlobs($workspaceId: String!) {
         releaseDeletedBlobs(workspaceId: $workspaceId)
       }
     `;
-    
+
     const data = await gql.request<{ releaseDeletedBlobs: boolean }>(mutation, {
-      workspaceId
+      workspaceId,
     });
-    
-    return text({ success: true, workspaceId, blobsReleased: data.releaseDeletedBlobs });
+
+    return text({
+      success: true,
+      workspaceId,
+      blobsReleased: data.releaseDeletedBlobs,
+    });
   } catch (error: any) {
     return text({ error: error.message });
   }

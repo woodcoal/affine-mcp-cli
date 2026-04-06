@@ -12,9 +12,9 @@ export function registerHistoryTools(server: McpServer) {
         workspaceId: z.string().optional(),
         guid: z.string(),
         take: z.number().optional(),
-        before: z.string().optional()
-      }
+        before: z.string().optional(),
+      },
     },
-    (params: history.ListHistoriesParams) => history.listHistoriesHandler(params) as any
+    history.listHistoriesHandler,
   );
 }

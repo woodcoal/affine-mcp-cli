@@ -32,131 +32,11 @@ type OrganizeNodeRecord = {
 };
 
 /**
- * 列出收藏集的参数类型
- */
-export interface ListCollectionsParams {
-  workspaceId?: string;
-}
-
-/**
- * 获取收藏集的参数类型
- */
-export interface GetCollectionParams {
-  workspaceId?: string;
-  collectionId: string;
-}
-
-/**
- * 创建收藏集的参数类型
- */
-export interface CreateCollectionParams {
-  workspaceId?: string;
-  name: string;
-}
-
-/**
- * 更新收藏集的参数类型
- */
-export interface UpdateCollectionParams {
-  workspaceId?: string;
-  collectionId: string;
-  name?: string;
-}
-
-/**
- * 删除收藏集的参数类型
- */
-export interface DeleteCollectionParams {
-  workspaceId?: string;
-  collectionId: string;
-}
-
-/**
- * 添加文档到收藏集的参数类型
- */
-export interface AddDocToCollectionParams {
-  workspaceId?: string;
-  collectionId: string;
-  docId: string;
-}
-
-/**
- * 从收藏集移除文档的参数类型
- */
-export interface RemoveDocFromCollectionParams {
-  workspaceId?: string;
-  collectionId: string;
-  docId: string;
-}
-
-/**
- * 列出组织节点的参数类型
- */
-export interface ListOrganizeNodesParams {
-  workspaceId?: string;
-}
-
-/**
- * 创建文件夹的参数类型
- */
-export interface CreateFolderParams {
-  workspaceId?: string;
-  name: string;
-  parentId?: string | null;
-  index?: string;
-}
-
-/**
- * 重命名文件夹的参数类型
- */
-export interface RenameFolderParams {
-  workspaceId?: string;
-  folderId: string;
-  name: string;
-}
-
-/**
- * 删除文件夹的参数类型
- */
-export interface DeleteFolderParams {
-  workspaceId?: string;
-  folderId: string;
-}
-
-/**
- * 移动组织节点的参数类型
- */
-export interface MoveOrganizeNodeParams {
-  workspaceId?: string;
-  nodeId: string;
-  parentId?: string | null;
-  index?: string;
-}
-
-/**
- * 添加组织链接的参数类型
- */
-export interface AddOrganizeLinkParams {
-  workspaceId?: string;
-  folderId: string;
-  type: "doc" | "tag" | "collection";
-  targetId: string;
-  index?: string;
-}
-
-/**
- * 删除组织链接的参数类型
- */
-export interface DeleteOrganizeLinkParams {
-  workspaceId?: string;
-  nodeId: string;
-}
-
-/**
  * 生成 ID
  */
 function generateId(length = 21): string {
-  const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+  const chars =
+    "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
   const bytes = randomBytes(length);
   let result = "";
   for (let i = 0; i < length; i += 1) {
@@ -171,12 +51,13 @@ function hasSamePrefix(a: string, b: string): boolean {
 
 function generateFractionalIndexingKeyBetween(
   a: string | null,
-  b: string | null
+  b: string | null,
 ): string {
   const randomSize = 32;
 
   function postfix(length = randomSize): string {
-    const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const chars =
+      "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     const values = randomBytes(length);
     let result = "";
     for (let i = 0; i < length; i += 1) {
@@ -221,11 +102,16 @@ function normalizeCollection(value: unknown): CollectionInfo | null {
     return null;
   }
   const collection = value as Record<string, unknown>;
-  if (typeof collection.id !== "string" || typeof collection.name !== "string") {
+  if (
+    typeof collection.id !== "string" ||
+    typeof collection.name !== "string"
+  ) {
     return null;
   }
   const allowList = Array.isArray(collection.allowList)
-    ? collection.allowList.filter((entry): entry is string => typeof entry === "string")
+    ? collection.allowList.filter(
+        (entry): entry is string => typeof entry === "string",
+      )
     : [];
   const rules =
     collection.rules &&
@@ -233,7 +119,9 @@ function normalizeCollection(value: unknown): CollectionInfo | null {
     !Array.isArray(collection.rules) &&
     Array.isArray((collection.rules as Record<string, unknown>).filters)
       ? {
-          filters: ((collection.rules as Record<string, unknown>).filters as unknown[]).slice(),
+          filters: (
+            (collection.rules as Record<string, unknown>).filters as unknown[]
+          ).slice(),
         }
       : { filters: [] };
 
@@ -264,14 +152,19 @@ function normalizeOrganizeNode(value: unknown): OrganizeNodeRecord | null {
   return {
     id: raw.id,
     parentId:
-      raw.parentId === null || typeof raw.parentId === "string" ? (raw.parentId as string | null) : null,
+      raw.parentId === null || typeof raw.parentId === "string"
+        ? (raw.parentId as string | null)
+        : null,
     type: raw.type as OrganizeNodeRecord["type"],
     data: raw.data,
     index: raw.index,
   };
 }
 
-function specialWorkspaceDbDocId(workspaceId: string, tableName: string): string {
+function specialWorkspaceDbDocId(
+  workspaceId: string,
+  tableName: string,
+): string {
   return `db$${workspaceId}$${tableName}`;
 }
 
@@ -333,13 +226,17 @@ function readOrganizeNodes(doc: Y.Doc): OrganizeNodeRecord[] {
   return nodes;
 }
 
-function organizeNodeMap(nodes: OrganizeNodeRecord[]): Map<string, OrganizeNodeRecord> {
-  return new Map(nodes.map(node => [node.id, node] as const));
+function organizeNodeMap(
+  nodes: OrganizeNodeRecord[],
+): Map<string, OrganizeNodeRecord> {
+  return new Map(nodes.map((node) => [node.id, node] as const));
 }
 
 function sortOrganizeNodes(nodes: OrganizeNodeRecord[]): OrganizeNodeRecord[] {
   return [...nodes].sort((left, right) => {
-    const parentCompare = (left.parentId ?? "").localeCompare(right.parentId ?? "");
+    const parentCompare = (left.parentId ?? "").localeCompare(
+      right.parentId ?? "",
+    );
     if (parentCompare !== 0) {
       return parentCompare;
     }
@@ -353,7 +250,7 @@ function sortOrganizeNodes(nodes: OrganizeNodeRecord[]): OrganizeNodeRecord[] {
 
 function ensureFolderParent(
   nodes: Map<string, OrganizeNodeRecord>,
-  parentId: string | null
+  parentId: string | null,
 ): void {
   if (parentId === null) {
     return;
@@ -364,7 +261,10 @@ function ensureFolderParent(
   }
 }
 
-function ensureNodeIsFolder(nodes: Map<string, OrganizeNodeRecord>, nodeId: string): OrganizeNodeRecord {
+function ensureNodeIsFolder(
+  nodes: Map<string, OrganizeNodeRecord>,
+  nodeId: string,
+): OrganizeNodeRecord {
   const node = nodes.get(nodeId);
   if (!node || node.type !== "folder") {
     throw new Error(`Folder '${nodeId}' was not found.`);
@@ -375,7 +275,7 @@ function ensureNodeIsFolder(nodes: Map<string, OrganizeNodeRecord>, nodeId: stri
 function isAncestor(
   nodes: Map<string, OrganizeNodeRecord>,
   childId: string,
-  ancestorId: string
+  ancestorId: string,
 ): boolean {
   if (childId === ancestorId) {
     return false;
@@ -400,10 +300,10 @@ function isAncestor(
 
 function nextOrganizeIndex(
   nodes: OrganizeNodeRecord[],
-  parentId: string | null
+  parentId: string | null,
 ): string {
   const siblings = nodes
-    .filter(node => node.parentId === parentId)
+    .filter((node) => node.parentId === parentId)
     .sort((left, right) => left.index.localeCompare(right.index));
   const last = siblings.at(-1);
   return generateFractionalIndexingKeyBetween(last?.index ?? null, null);
@@ -412,7 +312,9 @@ function nextOrganizeIndex(
 function requireWorkspaceId(workspaceId?: string): string {
   const resolved = workspaceId || getDefaultWorkspaceId();
   if (!resolved) {
-    throw new Error("workspaceId is required. Provide it as a parameter or set AFFINE_WORKSPACE_ID in environment.");
+    throw new Error(
+      "workspaceId is required. Provide it as a parameter or set AFFINE_WORKSPACE_ID in environment.",
+    );
   }
   return resolved;
 }
@@ -436,9 +338,18 @@ async function loadWorkspaceRootDoc(socket: any, workspaceId: string) {
   return { doc, snapshot };
 }
 
-async function saveWorkspaceRootDoc(socket: any, workspaceId: string, doc: Y.Doc) {
+async function saveWorkspaceRootDoc(
+  socket: any,
+  workspaceId: string,
+  doc: Y.Doc,
+) {
   const update = Y.encodeStateAsUpdate(doc);
-  await pushDocUpdate(socket, workspaceId, workspaceId, Buffer.from(update).toString("base64"));
+  await pushDocUpdate(
+    socket,
+    workspaceId,
+    workspaceId,
+    Buffer.from(update).toString("base64"),
+  );
 }
 
 async function loadFoldersDoc(socket: any, workspaceId: string) {
@@ -451,15 +362,25 @@ async function loadFoldersDoc(socket: any, workspaceId: string) {
   return { docId, doc, snapshot };
 }
 
-async function saveFoldersDoc(socket: any, workspaceId: string, docId: string, doc: Y.Doc) {
+async function saveFoldersDoc(
+  socket: any,
+  workspaceId: string,
+  docId: string,
+  doc: Y.Doc,
+) {
   const update = Y.encodeStateAsUpdate(doc);
-  await pushDocUpdate(socket, workspaceId, docId, Buffer.from(update).toString("base64"));
+  await pushDocUpdate(
+    socket,
+    workspaceId,
+    docId,
+    Buffer.from(update).toString("base64"),
+  );
 }
 
 /**
  * 列出收藏集
  */
-export async function listCollectionsHandler(params: ListCollectionsParams) {
+export async function listCollectionsHandler(params: { workspaceId?: string }) {
   const { workspaceId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -468,8 +389,13 @@ export async function listCollectionsHandler(params: ListCollectionsParams) {
     const { doc } = await loadWorkspaceRootDoc(socket, resolvedWorkspaceId);
     const setting = doc.getMap("setting");
     const current = setting.get("collections");
-    const collections = current instanceof Y.Array ? readCollections(current) : [];
-    return text([...collections].sort((left, right) => left.name.localeCompare(right.name)));
+    const collections =
+      current instanceof Y.Array ? readCollections(current) : [];
+    return text(
+      [...collections].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+    );
   } finally {
     socket.disconnect();
   }
@@ -478,7 +404,10 @@ export async function listCollectionsHandler(params: ListCollectionsParams) {
 /**
  * 获取收藏集
  */
-export async function getCollectionHandler(params: GetCollectionParams) {
+export async function getCollectionHandler(params: {
+  workspaceId?: string;
+  collectionId: string;
+}) {
   const { workspaceId, collectionId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -487,8 +416,9 @@ export async function getCollectionHandler(params: GetCollectionParams) {
     const { doc } = await loadWorkspaceRootDoc(socket, resolvedWorkspaceId);
     const setting = doc.getMap("setting");
     const current = setting.get("collections");
-    const collections = current instanceof Y.Array ? readCollections(current) : [];
-    const collection = collections.find(entry => entry.id === collectionId);
+    const collections =
+      current instanceof Y.Array ? readCollections(current) : [];
+    const collection = collections.find((entry) => entry.id === collectionId);
     if (!collection) {
       throw new Error(`Collection '${collectionId}' was not found.`);
     }
@@ -501,7 +431,10 @@ export async function getCollectionHandler(params: GetCollectionParams) {
 /**
  * 创建收藏集
  */
-export async function createCollectionHandler(params: CreateCollectionParams) {
+export async function createCollectionHandler(params: {
+  workspaceId?: string;
+  name: string;
+}) {
   const { workspaceId, name } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -535,7 +468,11 @@ export async function createCollectionHandler(params: CreateCollectionParams) {
 /**
  * 更新收藏集
  */
-export async function updateCollectionHandler(params: UpdateCollectionParams) {
+export async function updateCollectionHandler(params: {
+  workspaceId?: string;
+  collectionId: string;
+  name?: string;
+}) {
   const { workspaceId, collectionId, name } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -576,7 +513,10 @@ export async function updateCollectionHandler(params: UpdateCollectionParams) {
 /**
  * 删除收藏集
  */
-export async function deleteCollectionHandler(params: DeleteCollectionParams) {
+export async function deleteCollectionHandler(params: {
+  workspaceId?: string;
+  collectionId: string;
+}) {
   const { workspaceId, collectionId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -603,7 +543,11 @@ export async function deleteCollectionHandler(params: DeleteCollectionParams) {
 /**
  * 添加文档到收藏集
  */
-export async function addDocToCollectionHandler(params: AddDocToCollectionParams) {
+export async function addDocToCollectionHandler(params: {
+  workspaceId?: string;
+  collectionId: string;
+  docId: string;
+}) {
   const { workspaceId, collectionId, docId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -641,7 +585,11 @@ export async function addDocToCollectionHandler(params: AddDocToCollectionParams
 /**
  * 从收藏集移除文档
  */
-export async function removeDocFromCollectionHandler(params: RemoveDocFromCollectionParams) {
+export async function removeDocFromCollectionHandler(params: {
+  workspaceId?: string;
+  collectionId: string;
+  docId: string;
+}) {
   const { workspaceId, collectionId, docId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -663,7 +611,7 @@ export async function removeDocFromCollectionHandler(params: RemoveDocFromCollec
     }
     const next: CollectionInfo = {
       ...previous,
-      allowList: previous.allowList.filter(id => id !== docId),
+      allowList: previous.allowList.filter((id) => id !== docId),
     };
     doc.transact(() => {
       current.delete(index, 1);
@@ -679,7 +627,9 @@ export async function removeDocFromCollectionHandler(params: RemoveDocFromCollec
 /**
  * 列出组织节点
  */
-export async function listOrganizeNodesHandler(params: ListOrganizeNodesParams) {
+export async function listOrganizeNodesHandler(params: {
+  workspaceId?: string;
+}) {
   const { workspaceId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -700,7 +650,12 @@ export async function listOrganizeNodesHandler(params: ListOrganizeNodesParams) 
 /**
  * 创建文件夹
  */
-export async function createFolderHandler(params: CreateFolderParams) {
+export async function createFolderHandler(params: {
+  workspaceId?: string;
+  name: string;
+  parentId?: string | null;
+  index?: string;
+}) {
   const { workspaceId, name, parentId, index } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const resolvedParentId = parentId ?? null;
@@ -737,7 +692,11 @@ export async function createFolderHandler(params: CreateFolderParams) {
 /**
  * 重命名文件夹
  */
-export async function renameFolderHandler(params: RenameFolderParams) {
+export async function renameFolderHandler(params: {
+  workspaceId?: string;
+  folderId: string;
+  name: string;
+}) {
   const { workspaceId, folderId, name } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -758,7 +717,10 @@ export async function renameFolderHandler(params: RenameFolderParams) {
 /**
  * 删除文件夹
  */
-export async function deleteFolderHandler(params: DeleteFolderParams) {
+export async function deleteFolderHandler(params: {
+  workspaceId?: string;
+  folderId: string;
+}) {
   const { workspaceId, folderId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -778,7 +740,7 @@ export async function deleteFolderHandler(params: DeleteFolderParams) {
         continue;
       }
       if (current.type === "folder") {
-        const children = nodes.filter(node => node.parentId === current.id);
+        const children = nodes.filter((node) => node.parentId === current.id);
         for (const child of children) {
           stack.push(child.id);
         }
@@ -797,7 +759,12 @@ export async function deleteFolderHandler(params: DeleteFolderParams) {
 /**
  * 移动组织节点
  */
-export async function moveOrganizeNodeHandler(params: MoveOrganizeNodeParams) {
+export async function moveOrganizeNodeHandler(params: {
+  workspaceId?: string;
+  nodeId: string;
+  parentId?: string | null;
+  index?: string;
+}) {
   const { workspaceId, nodeId, parentId, index } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const resolvedParentId = parentId ?? null;
@@ -815,10 +782,19 @@ export async function moveOrganizeNodeHandler(params: MoveOrganizeNodeParams) {
     if (resolvedParentId === null && node.type !== "folder") {
       throw new Error("Root organize section can only contain folders.");
     }
-    if (resolvedParentId && node.type === "folder" && isAncestor(nodeMap, resolvedParentId, nodeId)) {
+    if (
+      resolvedParentId &&
+      node.type === "folder" &&
+      isAncestor(nodeMap, resolvedParentId, nodeId)
+    ) {
       throw new Error("Cannot move a folder into its descendant.");
     }
-    const nextIndex = index ?? nextOrganizeIndex(nodes.filter(entry => entry.id !== nodeId), resolvedParentId);
+    const nextIndex =
+      index ??
+      nextOrganizeIndex(
+        nodes.filter((entry) => entry.id !== nodeId),
+        resolvedParentId,
+      );
     const record = ensureRecord(doc, nodeId);
     record.set("parentId", resolvedParentId);
     record.set("index", nextIndex);
@@ -832,7 +808,13 @@ export async function moveOrganizeNodeHandler(params: MoveOrganizeNodeParams) {
 /**
  * 添加组织链接
  */
-export async function addOrganizeLinkHandler(params: AddOrganizeLinkParams) {
+export async function addOrganizeLinkHandler(params: {
+  workspaceId?: string;
+  folderId: string;
+  type: "doc" | "tag" | "collection";
+  targetId: string;
+  index?: string;
+}) {
   const { workspaceId, folderId, type, targetId, index } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();
@@ -868,7 +850,10 @@ export async function addOrganizeLinkHandler(params: AddOrganizeLinkParams) {
 /**
  * 删除组织链接
  */
-export async function deleteOrganizeLinkHandler(params: DeleteOrganizeLinkParams) {
+export async function deleteOrganizeLinkHandler(params: {
+  workspaceId?: string;
+  nodeId: string;
+}) {
   const { workspaceId, nodeId } = params;
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const { socket } = await getSocketContext();

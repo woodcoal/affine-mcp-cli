@@ -7,8 +7,8 @@ export function registerUserTools(server: McpServer) {
     {
       title: "Current User",
       description: "Get current signed-in user.",
-      inputSchema: {}
+      inputSchema: {},
     },
-    () => user.currentUserHandler() as any
+    user.currentUserHandler,
   );
 }

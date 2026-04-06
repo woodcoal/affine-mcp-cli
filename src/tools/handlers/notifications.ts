@@ -2,26 +2,14 @@ import { text } from "../../util/mcp.js";
 import { getGraphQLClient } from "./graphqlClient.js";
 
 /**
- * 列出通知的参数类型
+ * 列出通知
  */
-export interface ListNotificationsParams {
+export async function listNotificationsHandler(params: {
   first?: number;
   offset?: number;
   after?: string;
   unreadOnly?: boolean;
-}
-
-/**
- * 标记所有通知已读的参数类型
- */
-export interface ReadAllNotificationsParams {}
-
-/**
- * 列出通知
- */
-export async function listNotificationsHandler(
-  params: ListNotificationsParams,
-) {
+}) {
   const gql = getGraphQLClient();
   const { first = 20, offset, after, unreadOnly = false } = params;
 

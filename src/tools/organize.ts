@@ -12,7 +12,7 @@ export function registerOrganizeTools(server: McpServer) {
         workspaceId: z.string().optional(),
       },
     },
-    (params: organize.ListCollectionsParams) => organize.listCollectionsHandler(params) as any
+    organize.listCollectionsHandler,
   );
 
   server.registerTool(
@@ -25,7 +25,7 @@ export function registerOrganizeTools(server: McpServer) {
         collectionId: z.string(),
       },
     },
-    (params: organize.GetCollectionParams) => organize.getCollectionHandler(params) as any
+    organize.getCollectionHandler,
   );
 
   server.registerTool(
@@ -38,7 +38,7 @@ export function registerOrganizeTools(server: McpServer) {
         name: z.string(),
       },
     },
-    (params: organize.CreateCollectionParams) => organize.createCollectionHandler(params) as any
+    organize.createCollectionHandler,
   );
 
   server.registerTool(
@@ -52,7 +52,7 @@ export function registerOrganizeTools(server: McpServer) {
         name: z.string().optional(),
       },
     },
-    (params: organize.UpdateCollectionParams) => organize.updateCollectionHandler(params) as any
+    organize.updateCollectionHandler,
   );
 
   server.registerTool(
@@ -65,7 +65,7 @@ export function registerOrganizeTools(server: McpServer) {
         collectionId: z.string(),
       },
     },
-    (params: organize.DeleteCollectionParams) => organize.deleteCollectionHandler(params) as any
+    organize.deleteCollectionHandler,
   );
 
   server.registerTool(
@@ -79,7 +79,7 @@ export function registerOrganizeTools(server: McpServer) {
         docId: z.string(),
       },
     },
-    (params: organize.AddDocToCollectionParams) => organize.addDocToCollectionHandler(params) as any
+    organize.addDocToCollectionHandler,
   );
 
   server.registerTool(
@@ -93,19 +93,20 @@ export function registerOrganizeTools(server: McpServer) {
         docId: z.string(),
       },
     },
-    (params: organize.RemoveDocFromCollectionParams) => organize.removeDocFromCollectionHandler(params) as any
+    organize.removeDocFromCollectionHandler,
   );
 
   server.registerTool(
     "list_organize_nodes",
     {
       title: "List Organize Nodes",
-      description: "Experimental: list AFFiNE sidebar organize nodes from the folders workspace DB.",
+      description:
+        "Experimental: list AFFiNE sidebar organize nodes from the folders workspace DB.",
       inputSchema: {
         workspaceId: z.string().optional(),
       },
     },
-    (params: organize.ListOrganizeNodesParams) => organize.listOrganizeNodesHandler(params) as any
+    organize.listOrganizeNodesHandler,
   );
 
   server.registerTool(
@@ -120,7 +121,7 @@ export function registerOrganizeTools(server: McpServer) {
         index: z.string().optional(),
       },
     },
-    (params: organize.CreateFolderParams) => organize.createFolderHandler(params) as any
+    organize.createFolderHandler,
   );
 
   server.registerTool(
@@ -134,20 +135,21 @@ export function registerOrganizeTools(server: McpServer) {
         name: z.string(),
       },
     },
-    (params: organize.RenameFolderParams) => organize.renameFolderHandler(params) as any
+    organize.renameFolderHandler,
   );
 
   server.registerTool(
     "delete_folder",
     {
       title: "Delete Folder",
-      description: "Experimental: delete an AFFiNE organize folder and all nested nodes.",
+      description:
+        "Experimental: delete an AFFiNE organize folder and all nested nodes.",
       inputSchema: {
         workspaceId: z.string().optional(),
         folderId: z.string(),
       },
     },
-    (params: organize.DeleteFolderParams) => organize.deleteFolderHandler(params) as any
+    organize.deleteFolderHandler,
   );
 
   server.registerTool(
@@ -162,14 +164,15 @@ export function registerOrganizeTools(server: McpServer) {
         index: z.string().optional(),
       },
     },
-    (params: organize.MoveOrganizeNodeParams) => organize.moveOrganizeNodeHandler(params) as any
+    organize.moveOrganizeNodeHandler,
   );
 
   server.registerTool(
     "add_organize_link",
     {
       title: "Add Organize Link",
-      description: "Experimental: add a doc/tag/collection link under an AFFiNE organize folder.",
+      description:
+        "Experimental: add a doc/tag/collection link under an AFFiNE organize folder.",
       inputSchema: {
         workspaceId: z.string().optional(),
         folderId: z.string(),
@@ -178,19 +181,20 @@ export function registerOrganizeTools(server: McpServer) {
         index: z.string().optional(),
       },
     },
-    (params: organize.AddOrganizeLinkParams) => organize.addOrganizeLinkHandler(params) as any
+    organize.addOrganizeLinkHandler,
   );
 
   server.registerTool(
     "delete_organize_link",
     {
       title: "Delete Organize Link",
-      description: "Experimental: delete an AFFiNE organize doc/tag/collection link.",
+      description:
+        "Experimental: delete an AFFiNE organize doc/tag/collection link.",
       inputSchema: {
         workspaceId: z.string().optional(),
         nodeId: z.string(),
       },
     },
-    (params: organize.DeleteOrganizeLinkParams) => organize.deleteOrganizeLinkHandler(params) as any
+    organize.deleteOrganizeLinkHandler,
   );
 }

@@ -7,12 +7,13 @@ export function registerAuthTools(server: McpServer) {
     "sign_in",
     {
       title: "Sign In",
-      description: "Sign in to AFFiNE using email and password; sets session cookies for subsequent calls.",
+      description:
+        "Sign in to AFFiNE using email and password; sets session cookies for subsequent calls.",
       inputSchema: {
         email: z.string().email(),
-        password: z.string().min(1)
-      }
+        password: z.string().min(1),
+      },
     },
-    (params: auth.SignInParams) => auth.signInHandler(params) as any
+    auth.signInHandler,
   );
 }

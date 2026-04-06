@@ -8,9 +8,9 @@ export function registerAccessTokenTools(server: McpServer) {
     {
       title: "List Access Tokens",
       description: "List personal access tokens (metadata).",
-      inputSchema: {}
+      inputSchema: {},
     },
-    (params: accessTokens.ListAccessTokensParams) => accessTokens.listAccessTokensHandler(params) as any
+    accessTokens.listAccessTokensHandler,
   );
 
   server.registerTool(
@@ -20,10 +20,10 @@ export function registerAccessTokenTools(server: McpServer) {
       description: "Generate a personal access token (returns token).",
       inputSchema: {
         name: z.string(),
-        expiresAt: z.string().optional()
-      }
+        expiresAt: z.string().optional(),
+      },
     },
-    (params: accessTokens.GenerateAccessTokenParams) => accessTokens.generateAccessTokenHandler(params) as any
+    accessTokens.generateAccessTokenHandler,
   );
 
   server.registerTool(
@@ -32,9 +32,9 @@ export function registerAccessTokenTools(server: McpServer) {
       title: "Revoke Access Token",
       description: "Revoke a personal access token by id.",
       inputSchema: {
-        id: z.string()
-      }
+        id: z.string(),
+      },
     },
-    (params: accessTokens.RevokeAccessTokenParams) => accessTokens.revokeAccessTokenHandler(params) as any
+    accessTokens.revokeAccessTokenHandler,
   );
 }

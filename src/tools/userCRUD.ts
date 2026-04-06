@@ -10,10 +10,10 @@ export function registerUserCRUDTools(server: McpServer) {
       description: "Update current user's profile information.",
       inputSchema: {
         name: z.string().optional().describe("Display name"),
-        avatarUrl: z.string().optional().describe("Avatar URL")
-      }
+        avatarUrl: z.string().optional().describe("Avatar URL"),
+      },
     },
-    (params: userCRUD.UpdateProfileParams) => userCRUD.updateProfileHandler(params) as any
+    userCRUD.updateProfileHandler,
   );
 
   server.registerTool(
@@ -22,13 +22,15 @@ export function registerUserCRUDTools(server: McpServer) {
       title: "Update Settings",
       description: "Update user settings and preferences.",
       inputSchema: {
-        settings: z.object({
-          receiveCommentEmail: z.boolean().optional(),
-          receiveInvitationEmail: z.boolean().optional(),
-          receiveMentionEmail: z.boolean().optional(),
-        }).describe("User notification settings")
-      }
+        settings: z
+          .object({
+            receiveCommentEmail: z.boolean().optional(),
+            receiveInvitationEmail: z.boolean().optional(),
+            receiveMentionEmail: z.boolean().optional(),
+          })
+          .describe("User notification settings"),
+      },
     },
-    (params: userCRUD.UpdateSettingsParams) => userCRUD.updateSettingsHandler(params) as any
+    userCRUD.updateSettingsHandler,
   );
 }

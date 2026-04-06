@@ -11,37 +11,6 @@ import FormData from "form-data";
 import fetch from "node-fetch";
 
 /**
- * 获取工作区详情的参数类型
- */
-export interface GetWorkspaceParams {
-  id: string;
-}
-
-/**
- * 创建工作区的参数类型
- */
-export interface CreateWorkspaceParams {
-  name: string;
-  avatar?: string;
-}
-
-/**
- * 更新工作区的参数类型
- */
-export interface UpdateWorkspaceParams {
-  id: string;
-  public?: boolean;
-  enableAi?: boolean;
-}
-
-/**
- * 删除工作区的参数类型
- */
-export interface DeleteWorkspaceParams {
-  id: string;
-}
-
-/**
  * 生成 AFFiNE 风格的文档 ID
  */
 function generateDocId(): string {
@@ -175,7 +144,7 @@ export async function listWorkspacesHandler() {
 /**
  * 获取指定工作区详情
  */
-export async function getWorkspaceHandler(params: GetWorkspaceParams) {
+export async function getWorkspaceHandler(params: { id: string }) {
   const { id } = params;
   const gql = getGraphQLClient();
   try {
@@ -201,7 +170,10 @@ export async function getWorkspaceHandler(params: GetWorkspaceParams) {
 /**
  * 创建新工作区
  */
-export async function createWorkspaceHandler(params: CreateWorkspaceParams) {
+export async function createWorkspaceHandler(params: {
+  name: string;
+  avatar?: string;
+}) {
   const { name, avatar } = params;
   const gql = getGraphQLClient();
   try {
@@ -299,7 +271,11 @@ export async function createWorkspaceHandler(params: CreateWorkspaceParams) {
 /**
  * 更新工作区设置
  */
-export async function updateWorkspaceHandler(params: UpdateWorkspaceParams) {
+export async function updateWorkspaceHandler(params: {
+  id: string;
+  public?: boolean;
+  enableAi?: boolean;
+}) {
   const { id, public: isPublic, enableAi } = params;
   const gql = getGraphQLClient();
   try {
@@ -330,7 +306,7 @@ export async function updateWorkspaceHandler(params: UpdateWorkspaceParams) {
 /**
  * 删除工作区
  */
-export async function deleteWorkspaceHandler(params: DeleteWorkspaceParams) {
+export async function deleteWorkspaceHandler(params: { id: string }) {
   const { id } = params;
   const gql = getGraphQLClient();
   try {

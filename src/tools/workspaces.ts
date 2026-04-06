@@ -15,7 +15,7 @@ export function registerWorkspaceTools(server: McpServer) {
           .describe("Return format: text or json (default: text)"),
       },
     },
-    (params: any) => workspace.listWorkspacesHandler() as any,
+    workspace.listWorkspacesHandler,
   );
 
   server.registerTool(
@@ -31,8 +31,7 @@ export function registerWorkspaceTools(server: McpServer) {
           .describe("Return format: text or json (default: text)"),
       },
     },
-    (params: workspace.GetWorkspaceParams) =>
-      workspace.getWorkspaceHandler(params) as any,
+    workspace.getWorkspaceHandler,
   );
 
   server.registerTool(
@@ -50,8 +49,7 @@ export function registerWorkspaceTools(server: McpServer) {
           .describe("Return format: text or json (default: text)"),
       },
     },
-    (params: workspace.CreateWorkspaceParams) =>
-      workspace.createWorkspaceHandler(params) as any,
+    workspace.createWorkspaceHandler,
   );
 
   server.registerTool(

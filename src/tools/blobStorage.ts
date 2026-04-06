@@ -12,10 +12,10 @@ export function registerBlobTools(server: McpServer) {
         workspaceId: z.string().describe("Workspace ID"),
         content: z.string().describe("Base64 encoded content or text"),
         filename: z.string().optional().describe("Filename"),
-        contentType: z.string().optional().describe("MIME type")
-      }
+        contentType: z.string().optional().describe("MIME type"),
+      },
     },
-    (params: blobStorage.UploadBlobParams) => blobStorage.uploadBlobHandler(params) as any
+    blobStorage.uploadBlobHandler,
   );
 
   server.registerTool(
@@ -26,10 +26,10 @@ export function registerBlobTools(server: McpServer) {
       inputSchema: {
         workspaceId: z.string().describe("Workspace ID"),
         key: z.string().describe("Blob key/ID to delete"),
-        permanently: z.boolean().optional().describe("Delete permanently")
-      }
+        permanently: z.boolean().optional().describe("Delete permanently"),
+      },
     },
-    (params: blobStorage.DeleteBlobParams) => blobStorage.deleteBlobHandler(params) as any
+    blobStorage.deleteBlobHandler,
   );
 
   server.registerTool(
@@ -38,9 +38,9 @@ export function registerBlobTools(server: McpServer) {
       title: "Cleanup Deleted Blobs",
       description: "Permanently remove deleted blobs to free up storage.",
       inputSchema: {
-        workspaceId: z.string().describe("Workspace ID")
-      }
+        workspaceId: z.string().describe("Workspace ID"),
+      },
     },
-    (params: blobStorage.CleanupBlobsParams) => blobStorage.cleanupBlobsHandler(params) as any
+    blobStorage.cleanupBlobsHandler,
   );
 }

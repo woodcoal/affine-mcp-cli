@@ -1,132 +1,113 @@
-import { fetch } from "undici";
-import { VERSION } from "./config.js";
+import { GraphQLClient } from './client/graphqlClient.js';
+import { loginWithPassword } from './auth.js';
+import { loadConfig } from './config.js';
 
-const GQL_FETCH_TIMEOUT_MS = 30_000;
+let gqlInstance: GraphQLClient;
 
-/** Strip HTML tags and truncate to a safe length for error messages. */
-function sanitizeErrorBody(s: string, max = 200): string {
-  const stripped = s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-  return stripped.length > max ? stripped.slice(0, max) + "..." : stripped;
-}
+export async function createGraphQLClient() {
+	if (!gqlInstance) {
+		const config = loadConfig();
+		const gqlHeaders = { ...(config.headers || {}) };
+		const gqlBearer = config.apiToken;
 
-export class GraphQLClient {
-  private _headers: Record<string, string>;
-  private authenticated: boolean = false;
+		if (config.authMode === 'oauth') {
+			if (!gqlBearer) {
+				throw new Error('AFFINE_API_TOKEN is required when AFFINE_MCP_AUTH_MODE=oauth.');
+			}
+			if (config.cookie || config.email || config.password) {
+				console.error(
+					'[affine-mcp] OAuth mode uses the configured AFFINE_API_TOKEN service credential. ' +
+						'Ignoring AFFINE_COOKIE / AFFINE_EMAIL / AFFINE_PASSWORD.'
+				);
+			}
+			delete gqlHeaders.Cookie;
+			if (process.env.AFFINE_LOGIN_AT_START) {
+				console.error(
+					'[affine-mcp] AFFINE_LOGIN_AT_START is ignored when AFFINE_MCP_AUTH_MODE=oauth.'
+				);
+			}
+		}
 
-  constructor(private opts: { endpoint: string; headers?: Record<string, string>; bearer?: string }) {
-    this._headers = { ...(opts.headers || {}) };
+		// Initialize GraphQL client with authentication
+		const gql = new GraphQLClient({
+			endpoint: `${config.baseUrl}${config.graphqlPath}`,
+			headers: gqlHeaders,
+			bearer: gqlBearer
+		});
 
-    // Set authentication in priority order
-    if (opts.bearer) {
-      this._headers["Authorization"] = `Bearer ${opts.bearer}`;
-      this.authenticated = true;
-      console.error("Using Bearer token authentication");
-    } else if (this._headers.Cookie) {
-      this.authenticated = true;
-      console.error("Using Cookie authentication");
-    }
-  }
+		// Try email/password authentication if no other auth method is configured.
+		// To avoid startup timeouts in MCP clients, default to async login after the stdio handshake.
+		if (
+			config.authMode !== 'oauth' &&
+			!gql.isAuthenticated() &&
+			config.email &&
+			config.password
+		) {
+			const mode = (process.env.AFFINE_LOGIN_AT_START || 'async').toLowerCase();
+			// In HTTP transport mode, buildServer() is called per session, so credentials
+			// must be retained for subsequent sessions. Only clear in stdio mode (single session).
+			const isHttpTransport = ['sse', 'http', 'streamable'].includes(
+				(process.env.MCP_TRANSPORT || 'stdio').toLowerCase()
+			);
+			if (mode === 'sync') {
+				console.error(
+					'No token/cookie; performing synchronous email/password authentication at startup...'
+				);
+				try {
+					const { cookieHeader } = await loginWithPassword(
+						config.baseUrl,
+						config.email,
+						config.password
+					);
+					gql.setCookie(cookieHeader);
+					console.error('Successfully authenticated with email/password');
+				} catch (e) {
+					console.error('Failed to authenticate with email/password:', e);
+					console.error(
+						'WARNING: Continuing without authentication - some operations may fail'
+					);
+				} finally {
+					if (!isHttpTransport) {
+						config.password = undefined;
+						config.email = undefined;
+					}
+				}
+			} else {
+				console.error(
+					'No token/cookie; deferring email/password authentication (async after connect)...'
+				);
+				// Capture credentials before clearing — async login needs them.
+				const loginEmail = config.email!;
+				const loginPassword = config.password!;
+				if (!isHttpTransport) {
+					config.password = undefined;
+					config.email = undefined;
+				}
+				// Fire-and-forget async login so stdio handshake is not delayed.
+				(async () => {
+					try {
+						const { cookieHeader } = await loginWithPassword(
+							config.baseUrl,
+							loginEmail,
+							loginPassword
+						);
+						gql.setCookie(cookieHeader);
+						console.error('Successfully authenticated with email/password (async)');
+					} catch (e) {
+						console.error('Failed to authenticate with email/password (async):', e);
+					}
+				})();
+			}
+		}
 
-  /** The GraphQL endpoint URL */
-  get endpoint(): string {
-    return this.opts.endpoint;
-  }
+		// Log authentication status
+		if (!gql.isAuthenticated()) {
+			console.error('WARNING: No authentication configured. Some operations may fail.');
+			console.error('Set AFFINE_API_TOKEN or run: affine-mcp login');
+		}
 
-  /** Current request headers (including auth) */
-  get headers(): Record<string, string> {
-    return { ...this._headers };
-  }
+		gqlInstance = gql;
+	}
 
-  /** Cookie header value, if set */
-  get cookie(): string {
-    return this._headers["Cookie"] || "";
-  }
-
-  /** Bearer token, if set */
-  get bearer(): string {
-    const auth = this._headers["Authorization"] || "";
-    return auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  }
-
-  setHeaders(next: Record<string, string>) {
-    this._headers = { ...this._headers, ...next };
-  }
-
-  setCookie(cookieHeader: string) {
-    if (/[\r\n]/.test(cookieHeader)) {
-      throw new Error("Cookie header contains illegal CR/LF characters");
-    }
-    this._headers["Cookie"] = cookieHeader;
-    this.authenticated = true;
-    console.error("Session cookies set from email/password login");
-  }
-
-  isAuthenticated(): boolean {
-    return this.authenticated;
-  }
-
-  async request<T>(query: string, variables?: Record<string, any>): Promise<T> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "User-Agent": `affine-mcp-server/${VERSION}`,
-      ...this._headers,
-    };
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GQL_FETCH_TIMEOUT_MS);
-    let res;
-    try {
-      res = await fetch(this.opts.endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ query, variables }),
-        signal: controller.signal,
-      });
-    } catch (err: any) {
-      if (err.name === "AbortError") throw new Error(`GraphQL request timed out after ${GQL_FETCH_TIMEOUT_MS / 1000}s`);
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
-
-    // Handle redirects (undici may follow them but strip auth headers)
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get("location");
-      throw new Error(
-        `GraphQL endpoint returned redirect ${res.status} -> ${location || "(no location)"}. ` +
-        `Check AFFINE_BASE_URL.`
-      );
-    }
-
-    const contentType = res.headers.get("content-type") || "";
-
-    // Guard against non-JSON responses (Cloudflare challenges, HTML error pages)
-    if (!contentType.includes("application/json") && !contentType.includes("application/graphql")) {
-      const body = await res.text();
-      const snippet = sanitizeErrorBody(body);
-      throw new Error(
-        `GraphQL endpoint returned non-JSON response (${res.status} ${res.statusText}, ` +
-        `Content-Type: ${contentType || "(none)"}). Body: ${snippet}`
-      );
-    }
-
-    if (!res.ok) {
-      // Try to parse error body as JSON
-      let body: string;
-      try {
-        const json = await res.json() as any;
-        body = json.errors?.map((e: any) => e.message).join("; ") || JSON.stringify(json);
-      } catch {
-        body = await res.text().catch(() => "(unreadable body)");
-      }
-      throw new Error(`GraphQL HTTP ${res.status}: ${sanitizeErrorBody(body)}`);
-    }
-
-    const json = await res.json() as any;
-    if (json.errors) {
-      const msg = json.errors.map((e: any) => e.message).join("; ");
-      throw new Error(`GraphQL error: ${sanitizeErrorBody(msg)}`);
-    }
-    return json.data as T;
-  }
+	return gqlInstance;
 }

@@ -1,19 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { GraphQLClient } from "../graphqlClient.js";
 import { z } from "zod";
-import { text } from "../util/mcp.js";
+import * as accessTokens from "./handlers/accessTokens.js";
 
-export function registerAccessTokenTools(server: McpServer, gql: GraphQLClient) {
-  const listAccessTokensHandler = async () => {
-    try {
-      const query = `query { currentUser { accessTokens { id name createdAt expiresAt } } }`;
-      const data = await gql.request<{ currentUser: { accessTokens: any[] } }>(query);
-      return text(data.currentUser?.accessTokens || []);
-    } catch (error: any) {
-      console.error("List access tokens error:", error.message);
-      return text({ error: error.message });
-    }
-  };
+export function registerAccessTokenTools(server: McpServer) {
   server.registerTool(
     "list_access_tokens",
     {
@@ -21,14 +10,9 @@ export function registerAccessTokenTools(server: McpServer, gql: GraphQLClient) 
       description: "List personal access tokens (metadata).",
       inputSchema: {}
     },
-    listAccessTokensHandler as any
+    (params: accessTokens.ListAccessTokensParams) => accessTokens.listAccessTokensHandler(params) as any
   );
 
-  const generateAccessTokenHandler = async (parsed: { name: string; expiresAt?: string }) => {
-    const mutation = `mutation($input: GenerateAccessTokenInput!){ generateUserAccessToken(input:$input){ id name createdAt expiresAt token } }`;
-    const data = await gql.request<{ generateUserAccessToken: any }>(mutation, { input: { name: parsed.name, expiresAt: parsed.expiresAt ?? null } });
-    return text(data.generateUserAccessToken);
-  };
   server.registerTool(
     "generate_access_token",
     {
@@ -39,14 +23,9 @@ export function registerAccessTokenTools(server: McpServer, gql: GraphQLClient) 
         expiresAt: z.string().optional()
       }
     },
-    generateAccessTokenHandler as any
+    (params: accessTokens.GenerateAccessTokenParams) => accessTokens.generateAccessTokenHandler(params) as any
   );
 
-  const revokeAccessTokenHandler = async (parsed: { id: string }) => {
-    const mutation = `mutation($id:String!){ revokeUserAccessToken(id:$id) }`;
-    const data = await gql.request<{ revokeUserAccessToken: boolean }>(mutation, { id: parsed.id });
-    return text({ success: data.revokeUserAccessToken });
-  };
   server.registerTool(
     "revoke_access_token",
     {
@@ -56,6 +35,6 @@ export function registerAccessTokenTools(server: McpServer, gql: GraphQLClient) 
         id: z.string()
       }
     },
-    revokeAccessTokenHandler as any
+    (params: accessTokens.RevokeAccessTokenParams) => accessTokens.revokeAccessTokenHandler(params) as any
   );
 }

@@ -1,16 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { GraphQLClient } from "../graphqlClient.js";
-import { text } from "../util/mcp.js";
 import { z } from "zod";
+import * as history from "./handlers/history.js";
 
-export function registerHistoryTools(server: McpServer, gql: GraphQLClient, defaults: { workspaceId?: string }) {
-  const listHistoriesHandler = async (parsed: { workspaceId?: string; guid: string; take?: number; before?: string }) => {
-    const workspaceId = parsed.workspaceId || defaults.workspaceId || parsed.workspaceId;
-    if (!workspaceId) throw new Error("workspaceId required (or set AFFINE_WORKSPACE_ID)");
-    const query = `query Histories($workspaceId:String!,$guid:String!,$take:Int,$before:DateTime){ workspace(id:$workspaceId){ histories(guid:$guid, take:$take, before:$before){ id timestamp workspaceId } } }`;
-    const data = await gql.request<{ workspace: any }>(query, { workspaceId, guid: parsed.guid, take: parsed.take, before: parsed.before });
-    return text(data.workspace.histories);
-  };
+export function registerHistoryTools(server: McpServer) {
   server.registerTool(
     "list_histories",
     {
@@ -23,6 +15,6 @@ export function registerHistoryTools(server: McpServer, gql: GraphQLClient, defa
         before: z.string().optional()
       }
     },
-    listHistoriesHandler as any
+    (params: history.ListHistoriesParams) => history.listHistoriesHandler(params) as any
   );
 }

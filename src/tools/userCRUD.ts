@@ -1,33 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { GraphQLClient } from "../graphqlClient.js";
-import { text } from "../util/mcp.js";
+import * as userCRUD from "./handlers/userCRUD.js";
 
-export function registerUserCRUDTools(server: McpServer, gql: GraphQLClient) {
-  // UPDATE PROFILE
-  const updateProfileHandler = async ({ name, avatarUrl }: { name?: string; avatarUrl?: string }) => {
-    try {
-      const mutation = `
-        mutation UpdateProfile($input: UpdateUserInput!) {
-          updateProfile(input: $input) {
-            id
-            name
-            avatarUrl
-            email
-          }
-        }
-      `;
-      
-      const input: any = {};
-      if (name !== undefined) input.name = name;
-      if (avatarUrl !== undefined) input.avatarUrl = avatarUrl;
-      
-      const data = await gql.request<{ updateProfile: any }>(mutation, { input });
-      return text(data.updateProfile);
-    } catch (error: any) {
-      return text({ error: error.message });
-    }
-  };
+export function registerUserCRUDTools(server: McpServer) {
   server.registerTool(
     "update_profile",
     {
@@ -38,37 +13,9 @@ export function registerUserCRUDTools(server: McpServer, gql: GraphQLClient) {
         avatarUrl: z.string().optional().describe("Avatar URL")
       }
     },
-    updateProfileHandler as any
+    (params: userCRUD.UpdateProfileParams) => userCRUD.updateProfileHandler(params) as any
   );
 
-  // UPDATE SETTINGS
-  const updateSettingsHandler = async ({ settings }: { settings: { receiveCommentEmail?: boolean; receiveInvitationEmail?: boolean; receiveMentionEmail?: boolean } }) => {
-    try {
-      const mutation = `
-        mutation UpdateSettings($input: UpdateUserSettingsInput!) {
-          updateSettings(input: $input)
-        }
-      `;
-
-      const input: { receiveCommentEmail?: boolean; receiveInvitationEmail?: boolean; receiveMentionEmail?: boolean } = {};
-      if (typeof settings.receiveCommentEmail === 'boolean') input.receiveCommentEmail = settings.receiveCommentEmail;
-      if (typeof settings.receiveInvitationEmail === 'boolean') input.receiveInvitationEmail = settings.receiveInvitationEmail;
-      if (typeof settings.receiveMentionEmail === 'boolean') input.receiveMentionEmail = settings.receiveMentionEmail;
-      if (Object.keys(input).length === 0) {
-        return text({
-          error: "settings must include at least one of: receiveCommentEmail, receiveInvitationEmail, receiveMentionEmail",
-        });
-      }
-
-      const data = await gql.request<{ updateSettings: boolean }>(mutation, { 
-        input
-      });
-      
-      return text({ success: data.updateSettings });
-    } catch (error: any) {
-      return text({ error: error.message });
-    }
-  };
   server.registerTool(
     "update_settings",
     {
@@ -82,6 +29,6 @@ export function registerUserCRUDTools(server: McpServer, gql: GraphQLClient) {
         }).describe("User notification settings")
       }
     },
-    updateSettingsHandler as any
+    (params: userCRUD.UpdateSettingsParams) => userCRUD.updateSettingsHandler(params) as any
   );
 }

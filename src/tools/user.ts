@@ -1,14 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { GraphQLClient } from "../graphqlClient.js";
-import { text } from "../util/mcp.js";
+import * as user from "./handlers/user.js";
 
-export function registerUserTools(server: McpServer, gql: GraphQLClient) {
-  const currentUserHandler = async () => {
-    const query = `query Me { currentUser { id name email emailVerified avatarUrl disabled } }`;
-    const data = await gql.request<{ currentUser: any }>(query);
-    return text(data.currentUser);
-  };
-
+export function registerUserTools(server: McpServer) {
   server.registerTool(
     "current_user",
     {
@@ -16,6 +9,6 @@ export function registerUserTools(server: McpServer, gql: GraphQLClient) {
       description: "Get current signed-in user.",
       inputSchema: {}
     },
-    currentUserHandler as any
+    () => user.currentUserHandler() as any
   );
 }

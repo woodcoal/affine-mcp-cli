@@ -1,15 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { GraphQLClient } from "../graphqlClient.js";
-import { loginWithPassword } from "../auth.js";
-import { text } from "../util/mcp.js";
+import * as auth from "./handlers/auth.js";
 
-export function registerAuthTools(server: McpServer, gql: GraphQLClient, baseUrl: string) {
-  const signInHandler = async (parsed: { email: string; password: string }) => {
-    const { cookieHeader } = await loginWithPassword(baseUrl, parsed.email, parsed.password);
-    gql.setCookie(cookieHeader);
-    return text({ signedIn: true });
-  };
+export function registerAuthTools(server: McpServer) {
   server.registerTool(
     "sign_in",
     {
@@ -20,6 +13,6 @@ export function registerAuthTools(server: McpServer, gql: GraphQLClient, baseUrl
         password: z.string().min(1)
       }
     },
-    signInHandler as any
+    (params: auth.SignInParams) => auth.signInHandler(params) as any
   );
 }

@@ -1,5 +1,4 @@
-import { text } from "../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "./graphqlClient.js";
+import { text, getGraphQLClient, getDefaultWorkspaceId } from "./utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,
@@ -127,7 +126,6 @@ export interface ListWorkspaceDocsParams {
 export async function listWorkspaceDocsHandler(
   params: ListWorkspaceDocsParams,
 ) {
-  const gql = getGraphQLClient();
   const workspaceId = params.workspaceId || getDefaultWorkspaceId();
   if (!workspaceId)
     throw new Error("workspaceId required (or set AFFINE_WORKSPACE_ID)");

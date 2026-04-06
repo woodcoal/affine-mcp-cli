@@ -1,5 +1,4 @@
-import { text } from "../../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getGraphQLClient, getDefaultWorkspaceId } from "../utils.js";
 
 /**
  * Publish a doc (make public).

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import * as Y from "yjs";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { getGraphQLClient, getDefaultWorkspaceId } from "../utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,

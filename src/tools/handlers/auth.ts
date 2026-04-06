@@ -1,5 +1,4 @@
-import { text } from "../../util/mcp.js";
-import { getGraphQLClient } from "./graphqlClient.js";
+import { text, getGraphQLClient } from "./utils.js";
 import { loginWithPassword } from "../../auth.js";
 import { loadConfig } from "../../config.js";
 

@@ -1,6 +1,11 @@
 import { GraphQLClient } from "../../graphqlClient.js";
 import { loadConfig } from "../../config.js";
 
+export function text(data: unknown) {
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  return { content: [{ type: 'text' as const, text }] };
+}
+
 let gqlInstance: GraphQLClient | null = null;
 
 /**

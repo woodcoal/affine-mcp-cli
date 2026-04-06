@@ -1,10 +1,7 @@
 import * as Y from "yjs";
-import { z } from "zod";
-import { text } from "../../../util/mcp.js";
-import { getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getDefaultWorkspaceId } from "../utils.js";
 import { pushDocUpdate } from "../../../ws.js";
 import {
-  DocId,
   generateId,
   setSysFields,
   makeLinkedDocText,
@@ -27,7 +24,6 @@ import {
   richTextValueToString,
   readDatabaseViewDefs,
   readColumnDefs,
-  findBlockById,
   loadDatabaseDocContext,
   SELECT_COLORS,
 } from "./util.js";

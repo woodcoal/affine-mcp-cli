@@ -211,7 +211,7 @@ export async function startHttpMcpServer(
   // migrated to the Streamable HTTP transport above.
   // @deprecated — SSEServerTransport is deprecated by the SDK; use /mcp for new clients.
   // ===========================================================================
-  app.get("/sse", corsMiddleware, authMiddleware, async (req, res) => {
+  app.get("/sse", corsMiddleware, authMiddleware, async (_req, res) => {
     try {
       // @ts-ignore — intentional: SSEServerTransport retained for backward compat only
       const transport = new SSEServerTransport("/messages", res);

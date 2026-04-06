@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { text } from "../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "./graphqlClient.js";
+import { text, getGraphQLClient, getDefaultWorkspaceId } from "./utils.js";
 import {
   connectWorkspaceSocket,
   joinWorkspace,

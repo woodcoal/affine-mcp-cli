@@ -1,6 +1,5 @@
 import * as Y from "yjs";
-import { text } from "../../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getGraphQLClient, getDefaultWorkspaceId } from "../utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,
@@ -11,23 +10,18 @@ import {
 } from "../../../ws.js";
 import { renderBlocksToMarkdown } from "../../../markdown/render.js";
 import {
-  WorkspaceId,
-  DocId,
-  generateId,
   getCookieAndEndpoint,
   getWorkspacePageEntries,
   getWorkspaceTagOptionMaps,
   getStringArray,
   resolveTagLabels,
   findBlockIdByFlavour,
-  findBlockById,
   asText,
   childIdsFrom,
   getTagArray,
   collectDocForMarkdown,
   createDocInternal,
   createDocFromMarkdownCore,
-  AppendBlockInput,
 } from "./util.js";
 
 /**

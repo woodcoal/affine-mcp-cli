@@ -1,6 +1,5 @@
 import * as Y from "yjs";
-import { text } from "../../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getDefaultWorkspaceId } from "../utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,

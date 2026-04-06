@@ -1,11 +1,10 @@
-import { text } from "../../util/mcp.js";
+import { text, getGraphQLClient } from "./utils.js";
 import {
   connectWorkspaceSocket,
   joinWorkspace,
   pushDocUpdate,
   wsUrlFromGraphQLEndpoint,
 } from "../../ws.js";
-import { getGraphQLClient } from "./graphqlClient.js";
 import * as Y from "yjs";
 import FormData from "form-data";
 import fetch from "node-fetch";

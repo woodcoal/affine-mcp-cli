@@ -1,5 +1,4 @@
-import { text } from "../../util/mcp.js";
-import { getGraphQLClient } from "./graphqlClient.js";
+import { text, getGraphQLClient } from "./utils.js";
 
 /**
  * 更新当前用户资料

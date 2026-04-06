@@ -116,10 +116,6 @@ async function gql(baseUrl: string, auth: { token?: string; cookie?: string }, q
   return json.data;
 }
 
-function parseFlag(args: string[], ...flags: string[]): boolean {
-  return args.some((arg) => flags.includes(arg));
-}
-
 function consumeOption(args: string[], flag: string): string | undefined {
   const index = args.indexOf(flag);
   if (index === -1) return undefined;

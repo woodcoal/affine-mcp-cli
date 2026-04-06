@@ -1,6 +1,5 @@
 import * as Y from "yjs";
-import { text } from "../../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getDefaultWorkspaceId } from "../utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,
@@ -9,8 +8,6 @@ import {
   pushDocUpdate,
 } from "../../../ws.js";
 import {
-  WorkspaceId,
-  DocId,
   getCookieAndEndpoint,
   getWorkspacePageEntries,
   getWorkspaceTagOptionMaps,
@@ -18,7 +15,6 @@ import {
   resolveTagLabels,
   normalizeTag,
   ensureWorkspaceTagOption,
-  getTagArray,
   ensureTagArray,
   syncTagArrayToOption,
   collectMatchingTagIndexes,

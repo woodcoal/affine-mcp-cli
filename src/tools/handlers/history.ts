@@ -1,5 +1,4 @@
-import { text } from "../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "./graphqlClient.js";
+import { text, getGraphQLClient, getDefaultWorkspaceId } from "./utils.js";
 
 /**
  * 列出文档历史记录（时间戳）

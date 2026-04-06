@@ -1,7 +1,5 @@
 import * as Y from "yjs";
-import { z } from "zod";
-import { text } from "../../../util/mcp.js";
-import { getGraphQLClient, getDefaultWorkspaceId } from "../graphqlClient.js";
+import { text, getDefaultWorkspaceId } from "../utils.js";
 import {
   wsUrlFromGraphQLEndpoint,
   connectWorkspaceSocket,
@@ -10,8 +8,6 @@ import {
   pushDocUpdate,
 } from "../../../ws.js";
 import {
-  WorkspaceId,
-  DocId,
   getCookieAndEndpoint,
   appendBlockInternal,
   AppendBlockListStyle,

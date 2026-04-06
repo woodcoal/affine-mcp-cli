@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+// Lightweight CLI wrapper for affine-cli commands
+// Resolves to the compiled ESM entrypoint in dist
+import '../dist/cli.js';

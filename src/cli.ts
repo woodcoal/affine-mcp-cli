@@ -85,7 +85,7 @@ function readHidden(prompt: string): Promise<string> {
 async function gql(baseUrl: string, auth: { token?: string; cookie?: string }, query: string, variables?: Record<string, any>): Promise<any> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "User-Agent": `affine-mcp-server/${VERSION}`,
+    "User-Agent": `affine-cli/${VERSION}`,
   };
   if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
   if (auth.cookie) headers.Cookie = auth.cookie;
@@ -215,7 +215,7 @@ async function resolveCliAuth(baseUrl: string): Promise<{ auth: { token?: string
     const { cookieHeader } = await loginWithPassword(baseUrl, effective.email, effective.password);
     return { auth: { cookie: cookieHeader }, authKind: "email-password" };
   }
-  throw new CliError("No authentication configured. Run 'affine-mcp login' or set AFFINE_API_TOKEN.");
+  throw new CliError("No authentication configured. Run 'affine-cli login' or set AFFINE_API_TOKEN.");
 }
 
 async function inspectConnection(baseUrl: string, auth: { token?: string; cookie?: string }): Promise<ConnectionInspection> {
@@ -242,11 +242,10 @@ function printHelp(command?: string) {
     return;
   }
 
-  console.log(`affine-mcp ${VERSION}`);
+  console.log(`affine-cli ${VERSION}`);
   console.log("");
   console.log("Usage:");
-  console.log("  affine-mcp                 Start the MCP server over stdio");
-  console.log("  affine-mcp <command>       Run a CLI command");
+  console.log("  affine-cli <command>       Run a CLI command");
   console.log("");
   console.log("Commands:");
   for (const [name, definition] of Object.entries(COMMANDS)) {
@@ -254,13 +253,15 @@ function printHelp(command?: string) {
   }
   console.log("");
   console.log("Common examples:");
-  console.log("  affine-mcp login");
-  console.log("  affine-mcp status");
-  console.log("  affine-mcp doctor");
-  console.log("  affine-mcp show-config --json");
-  console.log("  affine-mcp snippet claude --env");
-  console.log("  affine-mcp --version");
-  console.log("  affine-mcp --help");
+  console.log("  affine-cli login");
+  console.log("  affine-cli status");
+  console.log("  affine-cli doctor");
+  console.log("  affine-cli show-config --json");
+  console.log("  affine-cli snippet claude --env");
+  console.log("  affine-cli --version");
+  console.log("  affine-cli --help");
+  console.log("");
+  console.log("To start the MCP server, use: affine-mcp");
 }
 
 async function detectWorkspace(baseUrl: string, auth: { token?: string; cookie?: string }, preferredWorkspaceId?: string): Promise<string> {
@@ -338,7 +339,7 @@ async function loginWithEmail(baseUrl: string): Promise<{ token: string; workspa
       baseUrl,
       auth,
       `mutation($input: GenerateAccessTokenInput!) { generateUserAccessToken(input: $input) { id name token } }`,
-      { input: { name: `affine-mcp-${new Date().toISOString().slice(0, 10)}` } },
+      { input: { name: `affine-cli-${new Date().toISOString().slice(0, 10)}` } },
     );
     token = data.generateUserAccessToken.token;
     console.error(`✓ Token created (name: ${data.generateUserAccessToken.name})\n`);
@@ -456,7 +457,7 @@ async function status(args: string[]) {
   ensureNoUnexpectedArgs(parsedArgs, "status");
   const config = loadConfigFile();
   if (!config.AFFINE_API_TOKEN) {
-    throw new CliError("Not logged in. Run: affine-mcp login");
+    throw new CliError("Not logged in. Run: affine-cli login");
   }
   try {
     const inspection = await inspectConnection(
@@ -646,7 +647,7 @@ function snippet(args: string[]) {
   const includeEnv = consumeFlags(parsedArgs, "--env");
   const target = parsedArgs[0];
   if (!target) {
-    throw new CliError("Usage: affine-mcp snippet <claude|cursor|codex> [--env]");
+    throw new CliError("Usage: affine-cli snippet <claude|cursor|codex> [--env]");
   }
   ensureNoUnexpectedArgs(parsedArgs.slice(1), "snippet");
   const env = includeEnv ? getSnippetEnv() : undefined;
@@ -707,7 +708,7 @@ function snippet(args: string[]) {
 
 function help(args: string[]) {
   if (args.length > 1) {
-    throw new CliError("Usage: affine-mcp help [command]");
+    throw new CliError("Usage: affine-cli help [command]");
   }
   printHelp(args[0]);
 }
@@ -715,42 +716,42 @@ function help(args: string[]) {
 const COMMANDS: Record<string, CliCommandDefinition> = {
   help: {
     summary: "Show CLI help",
-    usage: "affine-mcp help [command]",
+    usage: "affine-cli help [command]",
     handler: help,
   },
   login: {
     summary: "Interactive login and config bootstrap",
-    usage: "affine-mcp login [--url <url>] [--token <token>] [--workspace-id <id>] [--force]",
+    usage: "affine-cli login [--url <url>] [--token <token>] [--workspace-id <id>] [--force]",
     handler: login,
   },
   status: {
     summary: "Test the saved config and print current user info",
-    usage: "affine-mcp status [--json]",
+    usage: "affine-cli status [--json]",
     handler: status,
   },
   logout: {
     summary: "Remove the saved config file",
-    usage: "affine-mcp logout",
+    usage: "affine-cli logout",
     handler: logout,
   },
   "config-path": {
     summary: "Print the config file path",
-    usage: "affine-mcp config-path",
+    usage: "affine-cli config-path",
     handler: configPath,
   },
   "show-config": {
     summary: "Print the effective config (redacted)",
-    usage: "affine-mcp show-config [--json]",
+    usage: "affine-cli show-config [--json]",
     handler: showConfig,
   },
   doctor: {
     summary: "Run local config and connectivity diagnostics",
-    usage: "affine-mcp doctor [--json]",
+    usage: "affine-cli doctor [--json]",
     handler: doctor,
   },
   snippet: {
     summary: "Print ready-to-paste Claude/Cursor/Codex snippets",
-    usage: "affine-mcp snippet <claude|cursor|codex|all> [--env]",
+    usage: "affine-cli snippet <claude|cursor|codex|all> [--env]",
     handler: snippet,
   },
 };
@@ -770,3 +771,31 @@ export async function runCli(command: string, args: string[] = []): Promise<bool
   }
   return true;
 }
+
+// CLI entry point
+const rawArgs = process.argv.slice(2);
+const cliArgs = rawArgs[0] === "--" ? rawArgs.slice(1) : rawArgs;
+const subcommand = cliArgs[0];
+
+if (subcommand === "--version" || subcommand === "-v" || subcommand === "version") {
+  console.log(VERSION);
+  process.exit(0);
+}
+
+if (subcommand === "--help" || subcommand === "-h") {
+  await runCli("help");
+  process.exit(0);
+}
+
+if (subcommand) {
+  const handled = await runCli(subcommand, cliArgs.slice(1));
+  if (!handled) {
+    console.error(`Unknown command: ${subcommand}`);
+    await runCli("help");
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+// No subcommand - show help
+printHelp();

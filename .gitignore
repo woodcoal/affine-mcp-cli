@@ -4,6 +4,7 @@ node_modules/
 # TypeScript build output
 dist/
 *.tsbuildinfo
+package-lock.json
 
 # Environment files
 .env

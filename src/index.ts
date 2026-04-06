@@ -15,32 +15,9 @@ import { registerNotificationTools } from "./tools/notifications.js";
 import { loginWithPassword } from "./auth.js";
 import { registerAuthTools } from "./tools/auth.js";
 import { registerOrganizeTools } from "./tools/organize.js";
-import { runCli } from "./cli.js";
 import { startHttpMcpServer } from "./sse.js";
 import { existsSync } from "fs";
 import { CONFIG_FILE } from "./config.js";
-
-// CLI commands: affine-mcp login|status|logout|version
-const rawArgs = process.argv.slice(2);
-const cliArgs = rawArgs[0] === "--" ? rawArgs.slice(1) : rawArgs;
-const subcommand = cliArgs[0];
-if (subcommand === "--version" || subcommand === "-v" || subcommand === "version") {
-  console.log(VERSION);
-  process.exit(0);
-}
-if (subcommand === "--help" || subcommand === "-h") {
-  await runCli("help");
-  process.exit(0);
-}
-if (subcommand) {
-  const handled = await runCli(subcommand, cliArgs.slice(1));
-  if (!handled) {
-    console.error(`Unknown command: ${subcommand}`);
-    await runCli("help");
-    process.exit(1);
-  }
-  process.exit(0);
-}
 
 // MCP server mode (default)
 const config = loadConfig();

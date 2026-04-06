@@ -16,7 +16,7 @@ import { registerOrganizeTools } from './mcp/organize.js';
 import { runCli } from './cli.js';
 import { startHttpMcpServer } from './client/sse.js';
 import { existsSync } from 'fs';
-import { CONFIG_FILE } from './config.js';
+import { GLOBAL_CONFIG_FILE, LOCAL_CONFIG_FILE } from './config.js';
 
 import { createGraphQLClient } from './graphqlClient.js';
 
@@ -79,7 +79,10 @@ const DISABLED_TOOLS = new Set<string>(
 
 // Startup diagnostics (visible in Claude Code MCP server logs via stderr)
 console.error(
-	`[affine-mcp] Config: ${CONFIG_FILE} (${existsSync(CONFIG_FILE) ? 'found' : 'missing'})`
+	`[affine-mcp] Global config: ${GLOBAL_CONFIG_FILE} (${existsSync(GLOBAL_CONFIG_FILE) ? 'found' : 'missing'})`
+);
+console.error(
+	`[affine-mcp] Local config: ${LOCAL_CONFIG_FILE} (${existsSync(LOCAL_CONFIG_FILE) ? 'found' : 'missing'})`
 );
 console.error(`[affine-mcp] Endpoint: ${config.baseUrl}${config.graphqlPath}`);
 const hasAuth = !!(config.apiToken || config.cookie || (config.email && config.password));

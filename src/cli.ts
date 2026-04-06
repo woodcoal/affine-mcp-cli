@@ -3,9 +3,11 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 
 import {
-	CONFIG_FILE,
+	GLOBAL_CONFIG_FILE,
+	LOCAL_CONFIG_FILE,
 	loadConfig,
 	loadConfigFile,
+	readKeyValueFile,
 	validateBaseUrl,
 	VERSION,
 	writeConfigFile
@@ -166,17 +168,20 @@ function redactSecret(value: string | undefined): string | null {
 
 function getConfigValueSource(
 	name: string,
-	file: Record<string, string>,
+	globalFile: Record<string, string>,
+	localFile: Record<string, string>,
 	fallback?: string
-): 'env' | 'config' | 'default' | 'unset' {
+): 'env' | 'local' | 'global' | 'default' | 'unset' {
 	if (process.env[name]) return 'env';
-	if (file[name]) return 'config';
+	if (localFile[name]) return 'local';
+	if (globalFile[name]) return 'global';
 	if (fallback !== undefined) return 'default';
 	return 'unset';
 }
 
 function buildEffectiveConfigSummary() {
-	const stored = loadConfigFile();
+	const globalConfig = readKeyValueFile(GLOBAL_CONFIG_FILE);
+	const localConfig = readKeyValueFile(LOCAL_CONFIG_FILE);
 	const effective = loadConfig();
 	const authKind = effective.apiToken
 		? 'api-token'
@@ -187,8 +192,10 @@ function buildEffectiveConfigSummary() {
 				: 'none';
 
 	return {
-		configFile: CONFIG_FILE,
-		configFileExists: fs.existsSync(CONFIG_FILE),
+		configFile: GLOBAL_CONFIG_FILE,
+		localConfigFile: LOCAL_CONFIG_FILE,
+		configFileExists: fs.existsSync(GLOBAL_CONFIG_FILE),
+		localConfigFileExists: fs.existsSync(LOCAL_CONFIG_FILE),
 		baseUrl: effective.baseUrl,
 		graphqlPath: effective.graphqlPath,
 		workspaceId: effective.defaultWorkspaceId || null,
@@ -201,16 +208,16 @@ function buildEffectiveConfigSummary() {
 		oauthIssuerUrl: effective.oauthIssuerUrl || null,
 		oauthScopes: effective.oauthScopes,
 		sources: {
-			baseUrl: getConfigValueSource('AFFINE_BASE_URL', stored, 'http://localhost:3010'),
-			apiToken: getConfigValueSource('AFFINE_API_TOKEN', stored),
-			cookie: getConfigValueSource('AFFINE_COOKIE', stored),
-			email: getConfigValueSource('AFFINE_EMAIL', stored),
-			password: getConfigValueSource('AFFINE_PASSWORD', stored),
-			workspaceId: getConfigValueSource('AFFINE_WORKSPACE_ID', stored),
-			authMode: getConfigValueSource('AFFINE_MCP_AUTH_MODE', stored, 'bearer'),
-			publicBaseUrl: getConfigValueSource('AFFINE_MCP_PUBLIC_BASE_URL', stored),
-			oauthIssuerUrl: getConfigValueSource('AFFINE_OAUTH_ISSUER_URL', stored),
-			oauthScopes: getConfigValueSource('AFFINE_OAUTH_SCOPES', stored, 'mcp')
+			baseUrl: getConfigValueSource('AFFINE_BASE_URL', globalConfig, localConfig, 'http://localhost:3010'),
+			apiToken: getConfigValueSource('AFFINE_API_TOKEN', globalConfig, localConfig),
+			cookie: getConfigValueSource('AFFINE_COOKIE', globalConfig, localConfig),
+			email: getConfigValueSource('AFFINE_EMAIL', globalConfig, localConfig),
+			password: getConfigValueSource('AFFINE_PASSWORD', globalConfig, localConfig),
+			workspaceId: getConfigValueSource('AFFINE_WORKSPACE_ID', globalConfig, localConfig),
+			authMode: getConfigValueSource('AFFINE_MCP_AUTH_MODE', globalConfig, localConfig, 'bearer'),
+			publicBaseUrl: getConfigValueSource('AFFINE_MCP_PUBLIC_BASE_URL', globalConfig, localConfig),
+			oauthIssuerUrl: getConfigValueSource('AFFINE_OAUTH_ISSUER_URL', globalConfig, localConfig),
+			oauthScopes: getConfigValueSource('AFFINE_OAUTH_SCOPES', globalConfig, localConfig, 'mcp')
 		}
 	};
 }
@@ -416,7 +423,7 @@ async function login(args: string[]) {
 
 	const existing = loadConfigFile();
 	if (existing.AFFINE_API_TOKEN) {
-		console.error(`Existing config: ${CONFIG_FILE}`);
+		console.error(`Existing global config: ${GLOBAL_CONFIG_FILE}`);
 		console.error(`  URL:       ${existing.AFFINE_BASE_URL || '(default)'}`);
 		console.error('  Token:     (set)');
 		console.error(`  Workspace: ${existing.AFFINE_WORKSPACE_ID || '(none)'}\n`);
@@ -481,7 +488,7 @@ async function login(args: string[]) {
 		AFFINE_WORKSPACE_ID: result.workspaceId
 	});
 
-	console.error(`\n✓ Saved to ${CONFIG_FILE} (mode 600)`);
+	console.error(`\n✓ Saved to ${GLOBAL_CONFIG_FILE} (mode 600)`);
 	console.error('The MCP server will use these credentials automatically.');
 }
 
@@ -502,7 +509,7 @@ async function status(args: string[]) {
 			console.log(
 				JSON.stringify(
 					{
-						configFile: CONFIG_FILE,
+						configFile: GLOBAL_CONFIG_FILE,
 						baseUrl: config.AFFINE_BASE_URL || 'https://app.affine.pro',
 						workspaceId: config.AFFINE_WORKSPACE_ID || null,
 						userName: inspection.userName,
@@ -516,7 +523,7 @@ async function status(args: string[]) {
 			return;
 		}
 
-		console.error(`Config: ${CONFIG_FILE}`);
+		console.error(`Global config: ${GLOBAL_CONFIG_FILE}`);
 		console.error(`URL:       ${config.AFFINE_BASE_URL || '(default)'}`);
 		console.error('Token:     (set)');
 		console.error(`Workspace: ${config.AFFINE_WORKSPACE_ID || '(none)'}\n`);
@@ -529,9 +536,9 @@ async function status(args: string[]) {
 
 function logout(args: string[]) {
 	ensureNoUnexpectedArgs(args, 'logout');
-	if (fs.existsSync(CONFIG_FILE)) {
-		fs.unlinkSync(CONFIG_FILE);
-		console.error(`Removed ${CONFIG_FILE}`);
+	if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+		fs.unlinkSync(GLOBAL_CONFIG_FILE);
+		console.error(`Removed ${GLOBAL_CONFIG_FILE}`);
 	} else {
 		console.error('No config file found.');
 	}
@@ -539,7 +546,7 @@ function logout(args: string[]) {
 
 function configPath(args: string[]) {
 	ensureNoUnexpectedArgs(args, 'config-path');
-	console.log(CONFIG_FILE);
+	console.log(GLOBAL_CONFIG_FILE);
 }
 
 function showConfig(args: string[]) {
@@ -554,7 +561,10 @@ function showConfig(args: string[]) {
 	}
 
 	console.log(
-		`Config file: ${summary.configFile} (${summary.configFileExists ? 'found' : 'missing'})`
+		`Global config: ${summary.configFile} (${summary.configFileExists ? 'found' : 'missing'})`
+	);
+	console.log(
+		`Local config: ${summary.localConfigFile} (${summary.localConfigFileExists ? 'found' : 'missing'})`
 	);
 	console.log(`Base URL: ${summary.baseUrl} (${summary.sources.baseUrl})`);
 	console.log(`GraphQL path: ${summary.graphqlPath}`);

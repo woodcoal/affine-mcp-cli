@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const TOOLS_DIR = path.join(ROOT, 'src', 'tools');
+const TOOLS_DIR = path.join(ROOT, 'src', 'mcp');
 const MANIFEST_PATH = path.join(ROOT, 'tool-manifest.json');
 
 function fail(message) {

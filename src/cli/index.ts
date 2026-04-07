@@ -6,16 +6,19 @@
 import { CliModule, generateHelp, outputResult } from './utils.js';
 import { VERSION, loadConfig } from '../config.js';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import {
-  GLOBAL_CONFIG_FILE,
-  LOCAL_CONFIG_FILE,
-  loadConfigFile,
-  readKeyValueFile,
-  validateBaseUrl,
-  writeConfigFile
+	GLOBAL_CONFIG_FILE,
+	LOCAL_CONFIG_FILE,
+	loadConfigFile,
+	readKeyValueFile,
+	validateBaseUrl,
+	writeConfigFile
 } from '../config.js';
 import { loginWithPassword } from '../auth.js';
 import { fetch } from 'undici';
+import * as readline from 'readline';
 
 // ---------------------------------------------------------------------------
 // 导入模块化命令
@@ -33,17 +36,29 @@ import { runNotificationCommands } from './notifications.js';
 // ---------------------------------------------------------------------------
 // 类型定义
 // ---------------------------------------------------------------------------
+class CliError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'CliError';
+	}
+}
+
 type ConnectionInspection = {
-  userName: string;
-  userEmail: string;
-  workspaceCount: number;
+	userName: string;
+	userEmail: string;
+	workspaceCount: number;
 };
 
-class CliError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'CliError';
-  }
+async function inspectConnection(
+	baseUrl: string,
+	auth: { token?: string; cookie?: string }
+): Promise<ConnectionInspection> {
+	const data = await gql(baseUrl, auth, 'query { currentUser { name email } workspaces { id } }');
+	return {
+		userName: data.currentUser.name,
+		userEmail: data.currentUser.email,
+		workspaceCount: data.workspaces.length
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -51,129 +66,213 @@ class CliError extends Error {
 // ---------------------------------------------------------------------------
 const CLI_FETCH_TIMEOUT_MS = 30_000;
 
+/**
+ * 交互式输入函数
+ * @param prompt 提示文字
+ * @param hidden 是否隐藏输入（如密码）
+ */
+function ask(prompt: string, hidden = false): Promise<string> {
+	if (hidden && process.stdin.isTTY) {
+		return readHidden(prompt);
+	}
+	return new Promise((resolve) => {
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stderr,
+			terminal: process.stdin.isTTY ?? false
+		});
+		rl.question(prompt, (answer) => {
+			rl.close();
+			resolve((answer || '').trim());
+		});
+	});
+}
+
+/**
+ * 隐藏输入实现（无回显）
+ */
+function readHidden(prompt: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		process.stderr.write(prompt);
+		const buf: string[] = [];
+		process.stdin.setRawMode(true);
+		process.stdin.resume();
+		process.stdin.setEncoding('utf8');
+		const onData = (ch: string) => {
+			switch (ch) {
+				case '\r':
+				case '\n':
+					cleanup();
+					process.stderr.write('\n');
+					resolve(buf.join(''));
+					break;
+				case '\u0003':
+					cleanup();
+					process.stderr.write('\n');
+					reject(new CliError('已取消'));
+					break;
+				case '\u007F':
+				case '\b':
+					buf.pop();
+					break;
+				default:
+					buf.push(ch);
+			}
+		};
+		const cleanup = () => {
+			process.stdin.setRawMode(false);
+			process.stdin.pause();
+			process.stdin.removeListener('data', onData);
+		};
+		process.stdin.on('data', onData);
+	});
+}
+
 async function gql(
-  baseUrl: string,
-  auth: { token?: string; cookie?: string },
-  query: string,
-  variables?: Record<string, any>
+	baseUrl: string,
+	auth: { token?: string; cookie?: string },
+	query: string,
+	variables?: Record<string, any>
 ): Promise<any> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'User-Agent': `affine-cli/${VERSION}`
-  };
-  if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
-  if (auth.cookie) headers.Cookie = auth.cookie;
-  const body: any = { query };
-  if (variables) body.variables = variables;
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		'User-Agent': `affine-cli/${VERSION}`
+	};
+	if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
+	if (auth.cookie) headers.Cookie = auth.cookie;
+	const body: any = { query };
+	if (variables) body.variables = variables;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CLI_FETCH_TIMEOUT_MS);
-  let res;
-  try {
-    res = await fetch(`${baseUrl}/graphql`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error(`Request timed out after ${CLI_FETCH_TIMEOUT_MS / 1000}s`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = (await res.json()) as any;
-  if (json.errors) throw new Error(json.errors.map((e: any) => e.message).join('; '));
-  return json.data;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), CLI_FETCH_TIMEOUT_MS);
+	let res;
+	try {
+		res = await fetch(`${baseUrl}/graphql`, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify(body),
+			signal: controller.signal
+		});
+	} catch (err: any) {
+		if (err.name === 'AbortError') {
+			throw new Error(`Request timed out after ${CLI_FETCH_TIMEOUT_MS / 1000}s`);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
+	}
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	const json = (await res.json()) as any;
+	if (json.errors) throw new Error(json.errors.map((e: any) => e.message).join('; '));
+	return json.data;
 }
 
-async function resolveCliAuth(baseUrl: string): Promise<{ auth: { token?: string; cookie?: string }; authKind: string }> {
-  const effective = loadConfig();
-  if (effective.apiToken) {
-    return { auth: { token: effective.apiToken }, authKind: 'api-token' };
-  }
-  if (effective.cookie) {
-    return { auth: { cookie: effective.cookie }, authKind: 'cookie' };
-  }
-  if (effective.email && effective.password) {
-    const { cookieHeader } = await loginWithPassword(baseUrl, effective.email, effective.password);
-    return { auth: { cookie: cookieHeader }, authKind: 'email-password' };
-  }
-  throw new CliError("No authentication configured. Run 'affine-cli login' or set AFFINE_API_TOKEN.");
-}
-
-async function inspectConnection(baseUrl: string, auth: { token?: string; cookie?: string }): Promise<ConnectionInspection> {
-  const data = await gql(baseUrl, auth, 'query { currentUser { name email } workspaces { id } }');
-  return {
-    userName: data.currentUser.name,
-    userEmail: data.currentUser.email,
-    workspaceCount: data.workspaces.length
-  };
+async function resolveCliAuth(
+	baseUrl: string
+): Promise<{ auth: { token?: string; cookie?: string }; authKind: string }> {
+	const effective = loadConfig();
+	if (effective.apiToken) {
+		return { auth: { token: effective.apiToken }, authKind: 'api-token' };
+	}
+	if (effective.cookie) {
+		return { auth: { cookie: effective.cookie }, authKind: 'cookie' };
+	}
+	if (effective.email && effective.password) {
+		const { cookieHeader } = await loginWithPassword(
+			baseUrl,
+			effective.email,
+			effective.password
+		);
+		return { auth: { cookie: cookieHeader }, authKind: 'email-password' };
+	}
+	throw new CliError(
+		"No authentication configured. Run 'affine-cli login' or set AFFINE_API_TOKEN."
+	);
 }
 
 function redactSecret(value: string | undefined): string | null {
-  if (!value) return null;
-  if (value.length <= 8) return '*'.repeat(value.length);
-  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+	if (!value) return null;
+	if (value.length <= 8) return '*'.repeat(value.length);
+	return `${value.slice(0, 4)}…${value.slice(-4)}`;
 }
 
 function getConfigValueSource(
-  name: string,
-  globalFile: Record<string, string>,
-  localFile: Record<string, string>,
-  fallback?: string
+	name: string,
+	globalFile: Record<string, string>,
+	localFile: Record<string, string>,
+	fallback?: string
 ): 'env' | 'local' | 'global' | 'default' | 'unset' {
-  if (process.env[name]) return 'env';
-  if (localFile[name]) return 'local';
-  if (globalFile[name]) return 'global';
-  if (fallback !== undefined) return 'default';
-  return 'unset';
+	if (process.env[name]) return 'env';
+	if (localFile[name]) return 'local';
+	if (globalFile[name]) return 'global';
+	if (fallback !== undefined) return 'default';
+	return 'unset';
 }
 
 function buildEffectiveConfigSummary() {
-  const globalConfig = readKeyValueFile(GLOBAL_CONFIG_FILE);
-  const localConfig = readKeyValueFile(LOCAL_CONFIG_FILE);
-  const effective = loadConfig();
-  const authKind = effective.apiToken
-    ? 'api-token'
-    : effective.cookie
-      ? 'cookie'
-      : effective.email && effective.password
-        ? 'email-password'
-        : 'none';
+	const globalConfig = readKeyValueFile(GLOBAL_CONFIG_FILE);
+	const localConfig = readKeyValueFile(LOCAL_CONFIG_FILE);
+	const effective = loadConfig();
+	const authKind = effective.apiToken
+		? 'api-token'
+		: effective.cookie
+			? 'cookie'
+			: effective.email && effective.password
+				? 'email-password'
+				: 'none';
 
-  return {
-    configFile: GLOBAL_CONFIG_FILE,
-    localConfigFile: LOCAL_CONFIG_FILE,
-    configFileExists: fs.existsSync(GLOBAL_CONFIG_FILE),
-    localConfigFileExists: fs.existsSync(LOCAL_CONFIG_FILE),
-    baseUrl: effective.baseUrl,
-    graphqlPath: effective.graphqlPath,
-    workspaceId: effective.defaultWorkspaceId || null,
-    authMode: effective.authMode,
-    authKind,
-    apiToken: effective.apiToken ? redactSecret(effective.apiToken) : null,
-    cookie: effective.cookie ? '(set)' : null,
-    email: effective.email || null,
-    publicBaseUrl: effective.publicBaseUrl || null,
-    oauthIssuerUrl: effective.oauthIssuerUrl || null,
-    oauthScopes: effective.oauthScopes,
-    sources: {
-      baseUrl: getConfigValueSource('AFFINE_BASE_URL', globalConfig, localConfig, 'http://localhost:3010'),
-      apiToken: getConfigValueSource('AFFINE_API_TOKEN', globalConfig, localConfig),
-      cookie: getConfigValueSource('AFFINE_COOKIE', globalConfig, localConfig),
-      email: getConfigValueSource('AFFINE_EMAIL', globalConfig, localConfig),
-      password: getConfigValueSource('AFFINE_PASSWORD', globalConfig, localConfig),
-      workspaceId: getConfigValueSource('AFFINE_WORKSPACE_ID', globalConfig, localConfig),
-      authMode: getConfigValueSource('AFFINE_MCP_AUTH_MODE', globalConfig, localConfig, 'bearer'),
-      publicBaseUrl: getConfigValueSource('AFFINE_MCP_PUBLIC_BASE_URL', globalConfig, localConfig),
-      oauthIssuerUrl: getConfigValueSource('AFFINE_OAUTH_ISSUER_URL', globalConfig, localConfig),
-      oauthScopes: getConfigValueSource('AFFINE_OAUTH_SCOPES', globalConfig, localConfig, 'mcp')
-    }
-  };
+	return {
+		configFile: GLOBAL_CONFIG_FILE,
+		localConfigFile: LOCAL_CONFIG_FILE,
+		configFileExists: fs.existsSync(GLOBAL_CONFIG_FILE),
+		localConfigFileExists: fs.existsSync(LOCAL_CONFIG_FILE),
+		baseUrl: effective.baseUrl,
+		graphqlPath: effective.graphqlPath,
+		workspaceId: effective.defaultWorkspaceId || null,
+		authMode: effective.authMode,
+		authKind,
+		apiToken: effective.apiToken ? redactSecret(effective.apiToken) : null,
+		cookie: effective.cookie ? '(set)' : null,
+		email: effective.email || null,
+		publicBaseUrl: effective.publicBaseUrl || null,
+		oauthIssuerUrl: effective.oauthIssuerUrl || null,
+		oauthScopes: effective.oauthScopes,
+		sources: {
+			baseUrl: getConfigValueSource(
+				'AFFINE_BASE_URL',
+				globalConfig,
+				localConfig,
+				'http://localhost:3010'
+			),
+			apiToken: getConfigValueSource('AFFINE_API_TOKEN', globalConfig, localConfig),
+			cookie: getConfigValueSource('AFFINE_COOKIE', globalConfig, localConfig),
+			email: getConfigValueSource('AFFINE_EMAIL', globalConfig, localConfig),
+			password: getConfigValueSource('AFFINE_PASSWORD', globalConfig, localConfig),
+			workspaceId: getConfigValueSource('AFFINE_WORKSPACE_ID', globalConfig, localConfig),
+			authMode: getConfigValueSource(
+				'AFFINE_MCP_AUTH_MODE',
+				globalConfig,
+				localConfig,
+				'bearer'
+			),
+			publicBaseUrl: getConfigValueSource(
+				'AFFINE_MCP_PUBLIC_BASE_URL',
+				globalConfig,
+				localConfig
+			),
+			oauthIssuerUrl: getConfigValueSource(
+				'AFFINE_OAUTH_ISSUER_URL',
+				globalConfig,
+				localConfig
+			),
+			oauthScopes: getConfigValueSource(
+				'AFFINE_OAUTH_SCOPES',
+				globalConfig,
+				localConfig,
+				'mcp'
+			)
+		}
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -181,360 +280,562 @@ function buildEffectiveConfigSummary() {
 // ---------------------------------------------------------------------------
 
 async function login(args: string[]): Promise<void> {
-  const consumeOption = (flag: string): string | undefined => {
-    const index = args.indexOf(flag);
-    if (index === -1) return undefined;
-    const value = args[index + 1];
-    if (!value || value.startsWith('--')) {
-      throw new CliError(`Missing value for '${flag}'.`);
-    }
-    args.splice(index, 2);
-    return value;
-  };
+	const parsedArgs = [...args];
+	const providedUrl = consumeOption(parsedArgs, '--url');
+	const providedToken = consumeOption(parsedArgs, '--token');
+	const providedWorkspaceId = consumeOption(parsedArgs, '--workspace-id');
+	const force = consumeFlags(parsedArgs, '--force', '-f');
+	const useLocal = consumeFlags(parsedArgs, '--local');
+	ensureNoUnexpectedArgs(parsedArgs, 'login');
 
-  const consumeFlags = (...flags: string[]): boolean => {
-    let found = false;
-    for (const flag of flags) {
-      let index = args.indexOf(flag);
-      while (index !== -1) {
-        args.splice(index, 1);
-        found = true;
-        index = args.indexOf(flag);
-      }
-    }
-    return found;
-  };
+	console.error('Affine CLI — Login\n');
 
-  const providedUrl = consumeOption('--url');
-  const providedToken = consumeOption('--token');
-  const providedWorkspaceId = consumeOption('--workspace-id');
-  const force = consumeFlags('--force', '-f');
+	const configFile = useLocal
+		? path.join(process.cwd(), '.env')
+		: path.join(path.join(os.homedir(), '.affine-cli'), 'affine-cli.env');
 
-  if (args.length > 0) {
-    throw new CliError(`Unexpected arguments: ${args.join(' ')}`);
-  }
+	const existing = loadConfigFile();
+	if (existing.AFFINE_API_TOKEN) {
+		console.error(`Existing config: ${configFile}`);
+		console.error(`  URL:       ${existing.AFFINE_BASE_URL || '(default)'}`);
+		console.error('  Token:     (set)');
+		console.error(`  Workspace: ${existing.AFFINE_WORKSPACE_ID || '(none)'}\n`);
+		if (!force) {
+			const overwrite = await ask('Overwrite? [y/N] ');
+			if (!/^[yY]$/.test(overwrite)) {
+				console.error('Keeping existing config.');
+				return;
+			}
+			console.error('');
+		} else {
+			console.error('Overwriting existing config (--force).\n');
+		}
+	}
 
-  console.error('Affine CLI — Login\n');
+	const defaultUrl = 'https://app.affine.pro';
+	const rawUrl = providedUrl ?? ((await ask(`Affine URL [${defaultUrl}]: `)) || defaultUrl);
+	const baseUrl = validateBaseUrl(rawUrl);
 
-  const existing = loadConfigFile();
-  if (existing.AFFINE_API_TOKEN) {
-    console.error(`Existing global config: ${GLOBAL_CONFIG_FILE}`);
-    console.error(`  URL:       ${existing.AFFINE_BASE_URL || '(default)'}`);
-    console.error('  Token:     (set)');
-    console.error(`  Workspace: ${existing.AFFINE_WORKSPACE_ID || '(none)'}\n`);
-    if (!force) {
-      const readline = await import('readline');
-      const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
-      const ask = (prompt: string): Promise<string> => new Promise(resolve => rl.question(prompt, resolve));
-      const overwrite = await ask('Overwrite? [y/N] ');
-      rl.close();
-      if (!/^[yY]$/.test(overwrite)) {
-        console.error('Keeping existing config.');
-        return;
-      }
-      console.error('');
-    } else {
-      console.error('Overwriting existing config (--force).\n');
-    }
-  }
+	let result: { token: string; workspaceId: string };
 
-  const defaultUrl = 'https://app.affine.pro';
-  const readline = await import('readline');
-  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
-  const askInput = (prompt: string): Promise<string> => new Promise(resolve => rl.question(prompt, resolve));
-  
-  const rawUrl = providedUrl ?? ((await askInput(`Affine URL [${defaultUrl}]: `)) || defaultUrl);
-  const baseUrl = validateBaseUrl(rawUrl);
-  rl.close();
+	if (providedToken) {
+		console.error('Testing provided token...');
+		try {
+			const info = await inspectConnection(baseUrl, { token: providedToken });
+			console.error(`✓ Authenticated as: ${info.userName} <${info.userEmail}>\n`);
+		} catch (err: any) {
+			throw new CliError(`Authentication failed: ${err.message}`);
+		}
+		result = {
+			token: providedToken,
+			workspaceId: await detectWorkspace(
+				baseUrl,
+				{ token: providedToken },
+				providedWorkspaceId
+			)
+		};
+	} else {
+		const isSelfHosted = !baseUrl.includes('affine.pro');
+		if (isSelfHosted) {
+			const method = await ask(
+				'\nAuth method — [1] Email/password (recommended)  [2] Paste API token: '
+			);
+			const loginResult =
+				method === '2' ? await loginWithToken(baseUrl) : await loginWithEmail(baseUrl);
+			result = {
+				...loginResult,
+				workspaceId: providedWorkspaceId || loginResult.workspaceId
+			};
+		} else {
+			const loginResult = await loginWithToken(baseUrl);
+			result = {
+				...loginResult,
+				workspaceId: providedWorkspaceId || loginResult.workspaceId
+			};
+		}
+	}
 
-  let result: { token: string; workspaceId: string };
+	writeConfigFile(
+		{
+			AFFINE_BASE_URL: baseUrl,
+			AFFINE_API_TOKEN: result.token,
+			AFFINE_WORKSPACE_ID: result.workspaceId
+		},
+		useLocal
+	);
 
-  if (providedToken) {
-    console.error('Testing provided token...');
-    try {
-      await inspectConnection(baseUrl, { token: providedToken });
-      console.error('✓ Token valid\n');
-    } catch (err: any) {
-      throw new CliError(`Authentication failed: ${err.message}`);
-    }
-    result = { token: providedToken, workspaceId: '' };
-  } else {
-    const rl2 = await import('readline');
-    const rl2Interface = rl2.createInterface({ input: process.stdin, output: process.stderr });
-    const ask2 = (prompt: string): Promise<string> => new Promise(resolve => rl2Interface.question(prompt, resolve));
-    
-    console.error('\nEnter your API token:');
-    console.error(`  1. Open ${baseUrl}/settings in your browser`);
-    console.error('  2. Account Settings → Integrations → MCP Server');
-    console.error('  3. Copy the Personal access token\n');
-    
-    const token = await ask2('API token: ');
-    rl2Interface.close();
-    
-    if (!token) {
-      throw new CliError('No token provided.');
-    }
+	console.error(`\n✓ Saved to ${configFile} (mode 600)`);
+	console.error('The MCP server will use these credentials automatically.');
+}
 
-    console.error('Testing connection...');
-    try {
-      await inspectConnection(baseUrl, { token });
-      console.error('✓ Authenticated\n');
-    } catch (err: any) {
-      throw new CliError(`Authentication failed: ${err.message}`);
-    }
-    result = { token, workspaceId: '' };
-  }
+/**
+ * 工作区检测与选择
+ */
+async function detectWorkspace(
+	baseUrl: string,
+	auth: { token?: string; cookie?: string },
+	preferredWorkspaceId?: string
+): Promise<string> {
+	if (preferredWorkspaceId) {
+		console.error(`Using workspace override: ${preferredWorkspaceId}`);
+		return preferredWorkspaceId;
+	}
+	console.error('Detecting workspaces...');
+	try {
+		const data = await gql(
+			baseUrl,
+			auth,
+			`query {
+			workspaces {
+				id createdAt memberCount
+				owner { name }
+			}
+		}`
+		);
+		const workspaces: any[] = data.workspaces;
+		if (workspaces.length === 0) {
+			console.error('  No workspaces found.');
+			return '';
+		}
+		const formatWs = (w: any) => {
+			const owner = w.owner?.name || 'unknown';
+			const members = w.memberCount ?? 0;
+			const date = w.createdAt ? new Date(w.createdAt).toLocaleDateString() : '';
+			const membersStr = members === 1 ? '1 member' : `${members} members`;
+			return `${w.id}  (by ${owner}, ${membersStr}, ${date})`;
+		};
+		if (workspaces.length === 1) {
+			console.error(`  Found 1 workspace: ${formatWs(workspaces[0])}`);
+			console.error('  Auto-selected.');
+			return workspaces[0].id;
+		}
+		console.error(`  Found ${workspaces.length} workspaces:`);
+		workspaces.forEach((w, i) => console.error(`    ${i + 1}) ${formatWs(w)}`));
+		const choice = (await ask(`\nSelect [1]: `)) || '1';
+		const idx = parseInt(choice, 10) - 1;
+		if (idx < 0 || idx >= workspaces.length) {
+			throw new CliError('Invalid selection.');
+		}
+		return workspaces[idx].id;
+	} catch (err: any) {
+		if (err instanceof CliError) throw err;
+		console.error(`  Could not list workspaces: ${err.message}`);
+		return '';
+	}
+}
 
-  writeConfigFile({
-    AFFINE_BASE_URL: baseUrl,
-    AFFINE_API_TOKEN: result.token,
-    AFFINE_WORKSPACE_ID: providedWorkspaceId || result.workspaceId
-  });
+/**
+ * 账号密码登录
+ */
+async function loginWithEmail(baseUrl: string): Promise<{ token: string; workspaceId: string }> {
+	const email = await ask('Email: ');
+	const password = await ask('Password: ', true);
+	if (!email || !password) {
+		throw new CliError('Email and password are required.');
+	}
 
-  console.error(`\n✓ Saved to ${GLOBAL_CONFIG_FILE} (mode 600)`);
+	console.error('Signing in...');
+	let cookieHeader: string;
+	try {
+		({ cookieHeader } = await loginWithPassword(baseUrl, email, password));
+	} catch (err: any) {
+		throw new CliError(`Sign-in failed: ${err.message}`);
+	}
+
+	const auth = { cookie: cookieHeader };
+	try {
+		const data = await gql(baseUrl, auth, 'query { currentUser { name email } }');
+		console.error(`✓ Signed in as: ${data.currentUser.name} <${data.currentUser.email}>\n`);
+	} catch (err: any) {
+		throw new CliError(`Session verification failed: ${err.message}`);
+	}
+
+	console.error('Generating API token...');
+	let token: string;
+	try {
+		const data = await gql(
+			baseUrl,
+			auth,
+			`mutation($input: GenerateAccessTokenInput!) { generateUserAccessToken(input: $input) { id name token } }`,
+			{ input: { name: `affine-cli-${new Date().toISOString().slice(0, 10)}` } }
+		);
+		token = data.generateUserAccessToken.token;
+		console.error(`✓ Token created (name: ${data.generateUserAccessToken.name})\n`);
+	} catch (err: any) {
+		throw new CliError(
+			`Failed to generate token: ${err.message}\n` +
+				'You can create one manually in Affine Settings → Integrations → MCP Server'
+		);
+	}
+
+	const workspaceId = await detectWorkspace(baseUrl, { token });
+	return { token, workspaceId };
+}
+
+/**
+ * Token 登录
+ */
+async function loginWithToken(baseUrl: string): Promise<{ token: string; workspaceId: string }> {
+	console.error('\nTo generate a token:');
+	console.error(`  1. Open ${baseUrl}/settings in your browser`);
+	console.error('  2. Account Settings → Integrations → MCP Server');
+	console.error('  3. Copy the Personal access token\n');
+
+	const token = await ask('API token: ', true);
+	if (!token) {
+		throw new CliError('No token provided.');
+	}
+
+	console.error('Testing connection...');
+	try {
+		const data = await gql(baseUrl, { token }, 'query { currentUser { name email } }');
+		console.error(`✓ Authenticated as: ${data.currentUser.name} <${data.currentUser.email}>\n`);
+	} catch (err: any) {
+		throw new CliError(`Authentication failed: ${err.message}`);
+	}
+
+	const workspaceId = await detectWorkspace(baseUrl, { token });
+	return { token, workspaceId };
+}
+
+/**
+ * 解析参数选项
+ */
+function consumeOption(args: string[], flag: string): string | undefined {
+	const index = args.indexOf(flag);
+	if (index === -1) return undefined;
+	const value = args[index + 1];
+	if (!value || value.startsWith('--')) {
+		throw new CliError(`Missing value for '${flag}'.`);
+	}
+	args.splice(index, 2);
+	return value;
+}
+
+/**
+ * 解析参数标志
+ */
+function consumeFlags(args: string[], ...flags: string[]): boolean {
+	let found = false;
+	for (const flag of flags) {
+		let index = args.indexOf(flag);
+		while (index !== -1) {
+			args.splice(index, 1);
+			found = true;
+			index = args.indexOf(flag);
+		}
+	}
+	return found;
+}
+
+/**
+ * 检查是否有未预期的参数
+ */
+function ensureNoUnexpectedArgs(args: string[], command: string): void {
+	if (args.length > 0) {
+		throw new CliError(`Unexpected arguments for '${command}': ${args.join(' ')}`);
+	}
 }
 
 async function status(args: string[]): Promise<void> {
-  const asJson = args.includes('--json');
-  const otherArgs = args.filter(a => !a.startsWith('--'));
-  
-  if (otherArgs.length > 0 || (args.includes('--json') && args.indexOf('--json') !== args.length - 1 && args.filter(a => a === '--json').length > 1)) {
-    throw new CliError('Usage: affine-cli status [--json]');
-  }
+	const asJson = args.includes('--json');
+	const otherArgs = args.filter((a) => !a.startsWith('--'));
 
-  const config = loadConfigFile();
-  if (!config.AFFINE_API_TOKEN) {
-    throw new CliError('Not logged in. Run: affine-cli login');
-  }
-  try {
-    const inspection = await inspectConnection(
-      config.AFFINE_BASE_URL || 'https://app.affine.pro',
-      { token: config.AFFINE_API_TOKEN }
-    );
-    if (asJson) {
-      console.log(JSON.stringify({
-        configFile: GLOBAL_CONFIG_FILE,
-        baseUrl: config.AFFINE_BASE_URL || 'https://app.affine.pro',
-        workspaceId: config.AFFINE_WORKSPACE_ID || null,
-        userName: inspection.userName,
-        userEmail: inspection.userEmail,
-        workspaceCount: inspection.workspaceCount
-      }, null, 2));
-      return;
-    }
+	if (
+		otherArgs.length > 0 ||
+		(args.includes('--json') &&
+			args.indexOf('--json') !== args.length - 1 &&
+			args.filter((a) => a === '--json').length > 1)
+	) {
+		throw new CliError('Usage: affine-cli status [--json]');
+	}
 
-    console.error(`Global config: ${GLOBAL_CONFIG_FILE}`);
-    console.error(`URL:       ${config.AFFINE_BASE_URL || '(default)'}`);
-    console.error('Token:     (set)');
-    console.error(`Workspace: ${config.AFFINE_WORKSPACE_ID || '(none)'}\n`);
-    console.error(`User: ${inspection.userName} <${inspection.userEmail}>`);
-    console.error(`Workspaces: ${inspection.workspaceCount}`);
-  } catch (err: any) {
-    throw new CliError(`Connection failed: ${err.message}`);
-  }
+	const config = loadConfigFile();
+	if (!config.AFFINE_API_TOKEN) {
+		throw new CliError('Not logged in. Run: affine-cli login');
+	}
+	try {
+		const inspection = await inspectConnection(
+			config.AFFINE_BASE_URL || 'https://app.affine.pro',
+			{ token: config.AFFINE_API_TOKEN }
+		);
+		if (asJson) {
+			console.log(
+				JSON.stringify(
+					{
+						configFile: GLOBAL_CONFIG_FILE,
+						baseUrl: config.AFFINE_BASE_URL || 'https://app.affine.pro',
+						workspaceId: config.AFFINE_WORKSPACE_ID || null,
+						userName: inspection.userName,
+						userEmail: inspection.userEmail,
+						workspaceCount: inspection.workspaceCount
+					},
+					null,
+					2
+				)
+			);
+			return;
+		}
+
+		console.error(`Global config: ${GLOBAL_CONFIG_FILE}`);
+		console.error(`URL:       ${config.AFFINE_BASE_URL || '(default)'}`);
+		console.error('Token:     (set)');
+		console.error(`Workspace: ${config.AFFINE_WORKSPACE_ID || '(none)'}\n`);
+		console.error(`User: ${inspection.userName} <${inspection.userEmail}>`);
+		console.error(`Workspaces: ${inspection.workspaceCount}`);
+	} catch (err: any) {
+		throw new CliError(`Connection failed: ${err.message}`);
+	}
 }
 
 function logout(): void {
-  if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
-    fs.unlinkSync(GLOBAL_CONFIG_FILE);
-    console.error(`Removed ${GLOBAL_CONFIG_FILE}`);
-  } else {
-    console.error('No config file found.');
-  }
+	if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+		fs.unlinkSync(GLOBAL_CONFIG_FILE);
+		console.error(`Removed ${GLOBAL_CONFIG_FILE}`);
+	} else {
+		console.error('No config file found.');
+	}
 }
 
 function configPath(): void {
-  console.log(GLOBAL_CONFIG_FILE);
+	console.log(GLOBAL_CONFIG_FILE);
 }
 
 function showConfig(args: string[]): void {
-  const asJson = args.includes('--json');
-  
-  const summary = buildEffectiveConfigSummary();
-  if (asJson) {
-    console.log(JSON.stringify(summary, null, 2));
-    return;
-  }
+	const asJson = args.includes('--json');
 
-  console.log(`Global config: ${summary.configFile} (${summary.configFileExists ? 'found' : 'missing'})`);
-  console.log(`Local config: ${summary.localConfigFile} (${summary.localConfigFileExists ? 'found' : 'missing'})`);
-  console.log(`Base URL: ${summary.baseUrl} (${summary.sources.baseUrl})`);
-  console.log(`GraphQL path: ${summary.graphqlPath}`);
-  console.log(`Auth mode: ${summary.authMode} (${summary.sources.authMode})`);
-  console.log(`Auth kind: ${summary.authKind}`);
-  console.log(`Workspace: ${summary.workspaceId || '(none)'} (${summary.sources.workspaceId})`);
-  if (summary.apiToken) console.log(`API token: ${summary.apiToken} (${summary.sources.apiToken})`);
-  if (summary.cookie) console.log(`Cookie: ${summary.cookie} (${summary.sources.cookie})`);
-  if (summary.email) console.log(`Email: ${summary.email} (${summary.sources.email})`);
-  if (summary.publicBaseUrl) console.log(`Public base URL: ${summary.publicBaseUrl} (${summary.sources.publicBaseUrl})`);
-  if (summary.oauthIssuerUrl) console.log(`OAuth issuer URL: ${summary.oauthIssuerUrl} (${summary.sources.oauthIssuerUrl})`);
-  if (summary.authMode === 'oauth') console.log(`OAuth scopes: ${summary.oauthScopes.join(', ')} (${summary.sources.oauthScopes})`);
+	const summary = buildEffectiveConfigSummary();
+	if (asJson) {
+		console.log(JSON.stringify(summary, null, 2));
+		return;
+	}
+
+	console.log(
+		`Global config: ${summary.configFile} (${summary.configFileExists ? 'found' : 'missing'})`
+	);
+	console.log(
+		`Local config: ${summary.localConfigFile} (${summary.localConfigFileExists ? 'found' : 'missing'})`
+	);
+	console.log(`Base URL: ${summary.baseUrl} (${summary.sources.baseUrl})`);
+	console.log(`GraphQL path: ${summary.graphqlPath}`);
+	console.log(`Auth mode: ${summary.authMode} (${summary.sources.authMode})`);
+	console.log(`Auth kind: ${summary.authKind}`);
+	console.log(`Workspace: ${summary.workspaceId || '(none)'} (${summary.sources.workspaceId})`);
+	if (summary.apiToken)
+		console.log(`API token: ${summary.apiToken} (${summary.sources.apiToken})`);
+	if (summary.cookie) console.log(`Cookie: ${summary.cookie} (${summary.sources.cookie})`);
+	if (summary.email) console.log(`Email: ${summary.email} (${summary.sources.email})`);
+	if (summary.publicBaseUrl)
+		console.log(`Public base URL: ${summary.publicBaseUrl} (${summary.sources.publicBaseUrl})`);
+	if (summary.oauthIssuerUrl)
+		console.log(
+			`OAuth issuer URL: ${summary.oauthIssuerUrl} (${summary.sources.oauthIssuerUrl})`
+		);
+	if (summary.authMode === 'oauth')
+		console.log(
+			`OAuth scopes: ${summary.oauthScopes.join(', ')} (${summary.sources.oauthScopes})`
+		);
 }
 
 async function doctor(args: string[]): Promise<void> {
-  const asJson = args.includes('--json');
-  
-  const summary = buildEffectiveConfigSummary();
-  const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+	const asJson = args.includes('--json');
 
-  checks.push({
-    name: 'config-file',
-    ok: summary.configFileExists,
-    detail: summary.configFileExists ? summary.configFile : 'No saved config file found'
-  });
+	const summary = buildEffectiveConfigSummary();
+	const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
 
-  let authKind = 'none';
-  try {
-    const { auth, authKind: resolvedAuthKind } = await resolveCliAuth(summary.baseUrl);
-    authKind = resolvedAuthKind;
-    checks.push({
-      name: 'auth-configured',
-      ok: true,
-      detail: `Using ${resolvedAuthKind}`
-    });
+	checks.push({
+		name: 'config-file',
+		ok: summary.configFileExists,
+		detail: summary.configFileExists ? summary.configFile : 'No saved config file found'
+	});
 
-    const healthController = new AbortController();
-    const healthTimer = setTimeout(() => healthController.abort(), CLI_FETCH_TIMEOUT_MS);
-    try {
-      const response = await fetch(summary.baseUrl, { signal: healthController.signal });
-      checks.push({
-        name: 'base-url',
-        ok: response.ok,
-        detail: `HTTP ${response.status}`
-      });
-    } catch (err: any) {
-      checks.push({
-        name: 'base-url',
-        ok: false,
-        detail: err?.message || 'Could not reach base URL'
-      });
-    } finally {
-      clearTimeout(healthTimer);
-    }
+	let authKind = 'none';
+	try {
+		const { auth, authKind: resolvedAuthKind } = await resolveCliAuth(summary.baseUrl);
+		authKind = resolvedAuthKind;
+		checks.push({
+			name: 'auth-configured',
+			ok: true,
+			detail: `Using ${resolvedAuthKind}`
+		});
 
-    try {
-      const data = await inspectConnection(summary.baseUrl, auth);
-      checks.push({
-        name: 'graphql-auth',
-        ok: true,
-        detail: `${data.userEmail} (${data.workspaceCount} workspace(s))`
-      });
-    } catch (err: any) {
-      checks.push({
-        name: 'graphql-auth',
-        ok: false,
-        detail: err?.message || 'GraphQL auth failed'
-      });
-    }
-  } catch (err: any) {
-    checks.push({
-      name: 'auth-configured',
-      ok: false,
-      detail: err?.message || 'No authentication configured'
-    });
-  }
+		const healthController = new AbortController();
+		const healthTimer = setTimeout(() => healthController.abort(), CLI_FETCH_TIMEOUT_MS);
+		try {
+			const response = await fetch(summary.baseUrl, { signal: healthController.signal });
+			checks.push({
+				name: 'base-url',
+				ok: response.ok,
+				detail: `HTTP ${response.status}`
+			});
+		} catch (err: any) {
+			checks.push({
+				name: 'base-url',
+				ok: false,
+				detail: err?.message || 'Could not reach base URL'
+			});
+		} finally {
+			clearTimeout(healthTimer);
+		}
 
-  if (summary.authMode === 'oauth') {
-    const oauthReady = Boolean(summary.publicBaseUrl && summary.oauthIssuerUrl && summary.oauthScopes.length > 0);
-    checks.push({
-      name: 'oauth-config',
-      ok: oauthReady,
-      detail: oauthReady
-        ? `${summary.publicBaseUrl} -> ${summary.oauthIssuerUrl}`
-        : 'OAuth mode requires AFFINE_MCP_PUBLIC_BASE_URL and AFFINE_OAUTH_ISSUER_URL'
-    });
-  }
+		try {
+			const data = await inspectConnection(summary.baseUrl, auth);
+			checks.push({
+				name: 'graphql-auth',
+				ok: true,
+				detail: `${data.userEmail} (${data.workspaceCount} workspace(s))`
+			});
+		} catch (err: any) {
+			checks.push({
+				name: 'graphql-auth',
+				ok: false,
+				detail: err?.message || 'GraphQL auth failed'
+			});
+		}
+	} catch (err: any) {
+		checks.push({
+			name: 'auth-configured',
+			ok: false,
+			detail: err?.message || 'No authentication configured'
+		});
+	}
 
-  const ok = checks.every((check) => check.ok);
+	if (summary.authMode === 'oauth') {
+		const oauthReady = Boolean(
+			summary.publicBaseUrl && summary.oauthIssuerUrl && summary.oauthScopes.length > 0
+		);
+		checks.push({
+			name: 'oauth-config',
+			ok: oauthReady,
+			detail: oauthReady
+				? `${summary.publicBaseUrl} -> ${summary.oauthIssuerUrl}`
+				: 'OAuth mode requires AFFINE_MCP_PUBLIC_BASE_URL and AFFINE_OAUTH_ISSUER_URL'
+		});
+	}
 
-  if (asJson) {
-    console.log(JSON.stringify({ ok, config: summary, checks, authKind }, null, 2));
-    if (!ok) process.exit(1);
-    return;
-  }
+	const ok = checks.every((check) => check.ok);
 
-  console.log(`Doctor: ${ok ? 'OK' : 'FAILED'}`);
-  console.log(`Base URL: ${summary.baseUrl}`);
-  console.log(`Auth mode: ${summary.authMode}`);
-  for (const check of checks) {
-    console.log(`${check.ok ? '✓' : '✗'} ${check.name}: ${check.detail}`);
-  }
-  if (!ok) {
-    throw new CliError('Doctor checks failed.');
-  }
+	if (asJson) {
+		console.log(JSON.stringify({ ok, config: summary, checks, authKind }, null, 2));
+		if (!ok) process.exit(1);
+		return;
+	}
+
+	console.log(`Doctor: ${ok ? 'OK' : 'FAILED'}`);
+	console.log(`Base URL: ${summary.baseUrl}`);
+	console.log(`Auth mode: ${summary.authMode}`);
+	for (const check of checks) {
+		console.log(`${check.ok ? '✓' : '✗'} ${check.name}: ${check.detail}`);
+	}
+	if (!ok) {
+		throw new CliError('Doctor checks failed.');
+	}
 }
 
 function snippet(args: string[]): void {
-  const includeEnv = args.includes('--env');
-  const target = args.filter(a => !a.startsWith('--'))[0];
+	const includeEnv = args.includes('--env');
+	const target = args.filter((a) => !a.startsWith('--'))[0];
 
-  if (!target) {
-    throw new CliError('Usage: affine-cli snippet <claude|cursor|codex|all> [--env]');
-  }
+	if (!target) {
+		throw new CliError('Usage: affine-cli snippet <claude|cursor|codex|all> [--env]');
+	}
 
-  const effective = loadConfig();
-  const getEnv = (): Record<string, string> => {
-    const env: Record<string, string> = {};
-    if (effective.baseUrl) env.AFFINE_BASE_URL = effective.baseUrl;
-    if (effective.apiToken) env.AFFINE_API_TOKEN = effective.apiToken;
-    if (effective.defaultWorkspaceId) env.AFFINE_WORKSPACE_ID = effective.defaultWorkspaceId;
-    if (effective.authMode === 'oauth') {
-      env.AFFINE_MCP_AUTH_MODE = 'oauth';
-      if (effective.publicBaseUrl) env.AFFINE_MCP_PUBLIC_BASE_URL = effective.publicBaseUrl;
-      if (effective.oauthIssuerUrl) env.AFFINE_OAUTH_ISSUER_URL = effective.oauthIssuerUrl;
-      if (effective.oauthScopes.length > 0) env.AFFINE_OAUTH_SCOPES = effective.oauthScopes.join(' ');
-    }
-    return env;
-  };
+	const effective = loadConfig();
+	const getEnv = (): Record<string, string> => {
+		const env: Record<string, string> = {};
+		if (effective.baseUrl) env.AFFINE_BASE_URL = effective.baseUrl;
+		if (effective.apiToken) env.AFFINE_API_TOKEN = effective.apiToken;
+		if (effective.defaultWorkspaceId) env.AFFINE_WORKSPACE_ID = effective.defaultWorkspaceId;
+		if (effective.authMode === 'oauth') {
+			env.AFFINE_MCP_AUTH_MODE = 'oauth';
+			if (effective.publicBaseUrl) env.AFFINE_MCP_PUBLIC_BASE_URL = effective.publicBaseUrl;
+			if (effective.oauthIssuerUrl) env.AFFINE_OAUTH_ISSUER_URL = effective.oauthIssuerUrl;
+			if (effective.oauthScopes.length > 0)
+				env.AFFINE_OAUTH_SCOPES = effective.oauthScopes.join(' ');
+		}
+		return env;
+	};
 
-  const env = includeEnv ? getEnv() : undefined;
+	const env = includeEnv ? getEnv() : undefined;
 
-  if (target === 'all') {
-    const payload = {
-      claude: { mcpServers: { affine: { command: 'affine-mcp', ...(env && Object.keys(env).length > 0 ? { env } : {}) } } },
-      cursor: { mcpServers: { affine: { command: 'affine-mcp', ...(env && Object.keys(env).length > 0 ? { env } : {}) } } },
-      codex: env && Object.keys(env).length > 0
-        ? `codex mcp add affine ${Object.entries(env).map(([key, value]) => `--env ${key}=${JSON.stringify(value)}`).join(' ')} -- affine-mcp`
-        : 'codex mcp add affine -- affine-mcp'
-    };
-    console.log(JSON.stringify(payload, null, 2));
-    return;
-  }
+	if (target === 'all') {
+		const payload = {
+			claude: {
+				mcpServers: {
+					affine: {
+						command: 'affine-mcp',
+						...(env && Object.keys(env).length > 0 ? { env } : {})
+					}
+				}
+			},
+			cursor: {
+				mcpServers: {
+					affine: {
+						command: 'affine-mcp',
+						...(env && Object.keys(env).length > 0 ? { env } : {})
+					}
+				}
+			},
+			codex:
+				env && Object.keys(env).length > 0
+					? `codex mcp add affine ${Object.entries(env)
+							.map(([key, value]) => `--env ${key}=${JSON.stringify(value)}`)
+							.join(' ')} -- affine-mcp`
+					: 'codex mcp add affine -- affine-mcp'
+		};
+		console.log(JSON.stringify(payload, null, 2));
+		return;
+	}
 
-  if (target === 'claude' || target === 'cursor') {
-    console.log(JSON.stringify({
-      mcpServers: { affine: { command: 'affine-mcp', ...(env && Object.keys(env).length > 0 ? { env } : {}) } }
-    }, null, 2));
-    return;
-  }
+	if (target === 'claude' || target === 'cursor') {
+		console.log(
+			JSON.stringify(
+				{
+					mcpServers: {
+						affine: {
+							command: 'affine-mcp',
+							...(env && Object.keys(env).length > 0 ? { env } : {})
+						}
+					}
+				},
+				null,
+				2
+			)
+		);
+		return;
+	}
 
-  if (target === 'codex') {
-    if (!env || Object.keys(env).length === 0) {
-      console.log('codex mcp add affine -- affine-mcp');
-      return;
-    }
-    const envArgs = Object.entries(env).map(([key, value]) => `--env ${key}=${JSON.stringify(value)}`).join(' ');
-    console.log(`codex mcp add affine ${envArgs} -- affine-mcp`);
-    return;
-  }
+	if (target === 'codex') {
+		if (!env || Object.keys(env).length === 0) {
+			console.log('codex mcp add affine -- affine-mcp');
+			return;
+		}
+		const envArgs = Object.entries(env)
+			.map(([key, value]) => `--env ${key}=${JSON.stringify(value)}`)
+			.join(' ');
+		console.log(`codex mcp add affine ${envArgs} -- affine-mcp`);
+		return;
+	}
 
-  throw new CliError(`Unknown snippet target '${target}'. Expected claude, cursor, codex, or all.`);
+	throw new CliError(
+		`Unknown snippet target '${target}'. Expected claude, cursor, codex, or all.`
+	);
 }
 
 // ---------------------------------------------------------------------------
 // 补全命令
 // ---------------------------------------------------------------------------
 async function completion(args: string[]): Promise<void> {
-  const shell = args[0] || '';
+	const shell = args[0] || '';
 
-  // 获取所有模块和动作
-  const modules = Object.keys(CLI_MODULES);
+	// 获取所有模块和动作
+	const modules = Object.keys(CLI_MODULES);
 
-  let script = '';
+	let script = '';
 
-  switch (shell) {
-    case 'bash':
-      script = `#!/bin/bash
+	switch (shell) {
+		case 'bash':
+			script = `#!/bin/bash
 # AFFiNE CLI Bash 补全脚本
 # 安装方法: affine-cli completion bash >> ~/.bashrc
 
@@ -599,10 +900,10 @@ _affine_cli() {
 
 complete -F _affine_cli affine-cli
 `;
-      break;
+			break;
 
-    case 'zsh':
-      script = `#!/usr/bin/env zsh
+		case 'zsh':
+			script = `#!/usr/bin/env zsh
 # AFFiNE CLI Zsh 补全脚本
 # 安装方法: affine-cli completion zsh >> ~/.zshrc
 
@@ -636,10 +937,18 @@ _affine_cli() {
     options=('--help' '--version' '-h' '-v')
 
     local -a workspace_actions docs_actions comment_actions history_actions
-    workspace_actions=(${Object.keys(runWorkspaceCommands).map(a => `'${a}:${runWorkspaceCommands[a]?.description || ''}'`).join(' ')})
-    docs_actions=(${Object.keys(runDocsCommands).map(a => `'${a}:${runDocsCommands[a]?.description || ''}'`).join(' ')})
-    comment_actions=(${Object.keys(runCommentCommands).map(a => `'${a}:${runCommentCommands[a]?.description || ''}'`).join(' ')})
-    history_actions=(${Object.keys(runHistoryCommands).map(a => `'${a}:${runHistoryCommands[a]?.description || ''}'`).join(' ')})
+    workspace_actions=(${Object.keys(runWorkspaceCommands)
+		.map((a) => `'${a}:${runWorkspaceCommands[a]?.description || ''}'`)
+		.join(' ')})
+    docs_actions=(${Object.keys(runDocsCommands)
+		.map((a) => `'${a}:${runDocsCommands[a]?.description || ''}'`)
+		.join(' ')})
+    comment_actions=(${Object.keys(runCommentCommands)
+		.map((a) => `'${a}:${runCommentCommands[a]?.description || ''}'`)
+		.join(' ')})
+    history_actions=(${Object.keys(runHistoryCommands)
+		.map((a) => `'${a}:${runHistoryCommands[a]?.description || ''}'`)
+		.join(' ')})
 
     _arguments -C \\
         '1: :->first' \\
@@ -678,10 +987,10 @@ _affine_cli() {
 
 compdef _affine_cli affine-cli
 `;
-      break;
+			break;
 
-    case 'fish':
-      script = `# AFFiNE CLI Fish 补全脚本
+		case 'fish':
+			script = `# AFFiNE CLI Fish 补全脚本
 # 安装方法: affine-cli completion fish > ~/.config/fish/completions/affine-cli.fish
 
 complete -c affine-cli -f
@@ -731,11 +1040,11 @@ complete -c affine-cli -n '__fish_seen_subcommand_from docs' -a 'search' -d '搜
 complete -c affine-cli -n '__fish_seen_subcommand_from workspace docs comment history organize user token blob notification' -s w -l workspace-id -d '工作区ID'
 complete -c affine-cli -n '__fish_seen_subcommand_from workspace docs comment history organize user token blob notification' -s f -l format -a 'text json' -d '输出格式'
 `;
-      break;
+			break;
 
-    case 'powershell':
-    case 'pwsh':
-      script = `# AFFiNE CLI PowerShell 补全脚本
+		case 'powershell':
+		case 'pwsh':
+			script = `# AFFiNE CLI PowerShell 补全脚本
 # 安装方法: affine-cli completion powershell >> $PROFILE
 
 $scriptblock = {
@@ -794,72 +1103,74 @@ $scriptblock = {
 
 Register-ArgumentCompleter -CommandName affine-cli -ScriptBlock $scriptblock
 `;
-      break;
+			break;
 
-    default:
-      console.error(`支持的 shell: bash, zsh, fish, powershell`);
-      console.error('');
-      console.error('用法: affine-cli completion <shell>');
-      console.error('示例:');
-      console.error('  affine-cli completion bash >> ~/.bashrc');
-      console.error('  affine-cli completion zsh >> ~/.zshrc');
-      console.error('  affine-cli completion fish > ~/.config/fish/completions/affine-cli.fish');
-      console.error('  affine-cli completion powershell >> $PROFILE');
-      return;
-  }
+		default:
+			console.error(`支持的 shell: bash, zsh, fish, powershell`);
+			console.error('');
+			console.error('用法: affine-cli completion <shell>');
+			console.error('示例:');
+			console.error('  affine-cli completion bash >> ~/.bashrc');
+			console.error('  affine-cli completion zsh >> ~/.zshrc');
+			console.error(
+				'  affine-cli completion fish > ~/.config/fish/completions/affine-cli.fish'
+			);
+			console.error('  affine-cli completion powershell >> $PROFILE');
+			return;
+	}
 
-  console.log(script);
+	console.log(script);
 }
 
 // ---------------------------------------------------------------------------
 // CLI 模块注册
 // ---------------------------------------------------------------------------
 const CLI_MODULES: Record<string, CliModule> = {
-  workspace: {
-    name: 'workspace',
-    description: '管理工作区（创建、列表、获取、更新、删除）',
-    actions: runWorkspaceCommands
-  },
-  docs: {
-    name: 'docs',
-    description: '管理文档（创建、读取、更新、删除、搜索等）',
-    actions: runDocsCommands
-  },
-  comment: {
-    name: 'comment',
-    description: '管理文档评论',
-    actions: runCommentCommands
-  },
-  history: {
-    name: 'history',
-    description: '查看文档历史记录',
-    actions: runHistoryCommands
-  },
-  organize: {
-    name: 'organize',
-    description: '管理收藏集和文件夹',
-    actions: runOrganizeCommands
-  },
-  user: {
-    name: 'user',
-    description: '用户信息管理',
-    actions: runUserCommands
-  },
-  token: {
-    name: 'token',
-    description: '访问令牌管理',
-    actions: runTokenCommands
-  },
-  blob: {
-    name: 'blob',
-    description: 'Blob 存储管理',
-    actions: runBlobCommands
-  },
-  notification: {
-    name: 'notification',
-    description: '通知管理',
-    actions: runNotificationCommands
-  }
+	workspace: {
+		name: 'workspace',
+		description: '管理工作区（创建、列表、获取、更新、删除）',
+		actions: runWorkspaceCommands
+	},
+	docs: {
+		name: 'docs',
+		description: '管理文档（创建、读取、更新、删除、搜索等）',
+		actions: runDocsCommands
+	},
+	comment: {
+		name: 'comment',
+		description: '管理文档评论',
+		actions: runCommentCommands
+	},
+	history: {
+		name: 'history',
+		description: '查看文档历史记录',
+		actions: runHistoryCommands
+	},
+	organize: {
+		name: 'organize',
+		description: '管理收藏集和文件夹',
+		actions: runOrganizeCommands
+	},
+	user: {
+		name: 'user',
+		description: '用户信息管理',
+		actions: runUserCommands
+	},
+	token: {
+		name: 'token',
+		description: '访问令牌管理',
+		actions: runTokenCommands
+	},
+	blob: {
+		name: 'blob',
+		description: 'Blob 存储管理',
+		actions: runBlobCommands
+	},
+	notification: {
+		name: 'notification',
+		description: '通知管理',
+		actions: runNotificationCommands
+	}
 };
 
 // ---------------------------------------------------------------------------
@@ -868,158 +1179,163 @@ const CLI_MODULES: Record<string, CliModule> = {
 type BuiltinCommandHandler = (args: string[]) => Promise<void> | void;
 
 const BUILTIN_COMMANDS: Record<string, { summary: string; handler: BuiltinCommandHandler }> = {
-  login: {
-    summary: '交互式登录并配置',
-    handler: login
-  },
-  status: {
-    summary: '测试配置并显示当前用户',
-    handler: status
-  },
-  logout: {
-    summary: '清除已保存的配置',
-    handler: logout
-  },
-  'show-config': {
-    summary: '显示当前配置（已脱敏）',
-    handler: (args) => showConfig(args)
-  },
-  'config-path': {
-    summary: '打印配置文件路径',
-    handler: configPath
-  },
-  doctor: {
-    summary: '运行本地配置和连接诊断',
-    handler: doctor
-  },
-  snippet: {
-    summary: '生成 Claude/Cursor/Codex 配置片段',
-    handler: snippet
-  },
-  completion: {
-    summary: '生成 shell 补全脚本',
-    handler: completion
-  }
+	login: {
+		summary: '交互式登录并配置',
+		handler: login
+	},
+	status: {
+		summary: '测试配置并显示当前用户',
+		handler: status
+	},
+	logout: {
+		summary: '清除已保存的配置',
+		handler: logout
+	},
+	'show-config': {
+		summary: '显示当前配置（已脱敏）',
+		handler: (args) => showConfig(args)
+	},
+	'config-path': {
+		summary: '打印配置文件路径',
+		handler: configPath
+	},
+	doctor: {
+		summary: '运行本地配置和连接诊断',
+		handler: doctor
+	},
+	snippet: {
+		summary: '生成 Claude/Cursor/Codex 配置片段',
+		handler: snippet
+	},
+	completion: {
+		summary: '生成 shell 补全脚本',
+		handler: completion
+	}
 };
 
 // ---------------------------------------------------------------------------
 // 主帮助信息
 // ---------------------------------------------------------------------------
 function printMainHelp() {
-  const lines = [
-    `affine-cli ${VERSION} - AFFiNE 命令行工具`,
-    '',
-    '用法:',
-    '  affine-cli <command> [options]     运行内置命令',
-    '  affine-cli <module> <action> [options]  运行模块命令',
-    '  affine-cli <module> --help         显示模块帮助',
-    '  affine-cli help [command|module]    显示帮助',
-    '',
-    '内置命令:'
-  ];
+	const lines = [
+		`affine-cli ${VERSION} - AFFiNE 命令行工具`,
+		'',
+		'用法:',
+		'  affine-cli <command> [options]     运行内置命令',
+		'  affine-cli <module> <action> [options]  运行模块命令',
+		'  affine-cli <module> --help         显示模块帮助',
+		'  affine-cli help [command|module]    显示帮助',
+		'',
+		'内置命令:'
+	];
 
-  for (const [name, cmd] of Object.entries(BUILTIN_COMMANDS)) {
-    lines.push(`  ${name.padEnd(14)} ${cmd.summary}`);
-  }
+	for (const [name, cmd] of Object.entries(BUILTIN_COMMANDS)) {
+		lines.push(`  ${name.padEnd(14)} ${cmd.summary}`);
+	}
 
-  lines.push('');
-  lines.push('模块 (用于数据操作):');
+	lines.push('');
+	lines.push('模块 (用于数据操作):');
 
-  for (const [name, module] of Object.entries(CLI_MODULES)) {
-    lines.push(`  ${name.padEnd(14)} ${module.description}`);
-  }
+	for (const [name, module] of Object.entries(CLI_MODULES)) {
+		lines.push(`  ${name.padEnd(14)} ${module.description}`);
+	}
 
-  lines.push('');
-  lines.push('示例:');
-  lines.push('  affine-cli login');
-  lines.push('  affine-cli status');
-  lines.push('  affine-cli doctor');
-  lines.push('  affine-cli workspace list');
-  lines.push('  affine-cli docs create --title "My Doc"');
-  lines.push('  affine-cli completion bash >> ~/.bashrc');
+	lines.push('');
+	lines.push('示例:');
+	lines.push('  affine-cli login');
+	lines.push('  affine-cli status');
+	lines.push('  affine-cli doctor');
+	lines.push('  affine-cli workspace list');
+	lines.push('  affine-cli docs create --title "My Doc"');
+	lines.push('  affine-cli completion bash >> ~/.bashrc');
 
-  console.log(lines.join('\n'));
+	console.log(lines.join('\n'));
 }
 
 // ---------------------------------------------------------------------------
 // CLI 主入口
 // ---------------------------------------------------------------------------
 export async function runCli(args: string[]): Promise<boolean> {
-  const [command, ...remainingArgs] = args;
+	const [command, ...remainingArgs] = args;
 
-  // 版本信息
-  if (command === '--version' || command === '-v' || command === 'version') {
-    console.log(VERSION);
-    return true;
-  }
+	// 版本信息
+	if (command === '--version' || command === '-v' || command === 'version') {
+		console.log(VERSION);
+		return true;
+	}
 
-  // 帮助信息
-  if (!command || command === 'help' || command === '--help' || command === '-h') {
-    if (remainingArgs.length > 0) {
-      const target = remainingArgs[0];
-      // 检查是否是内置命令
-      if (BUILTIN_COMMANDS[target]) {
-        console.log(`affine-cli ${target}`);
-        console.log(`\n${BUILTIN_COMMANDS[target].summary}`);
-        return true;
-      }
-      // 检查是否是模块
-      if (CLI_MODULES[target]) {
-        console.log(generateHelp(CLI_MODULES[target]));
-        return true;
-      }
-    }
-    printMainHelp();
-    return true;
-  }
+	// 帮助信息
+	if (!command || command === 'help' || command === '--help' || command === '-h') {
+		if (remainingArgs.length > 0) {
+			const target = remainingArgs[0];
+			// 检查是否是内置命令
+			if (BUILTIN_COMMANDS[target]) {
+				console.log(`affine-cli ${target}`);
+				console.log(`\n${BUILTIN_COMMANDS[target].summary}`);
+				return true;
+			}
+			// 检查是否是模块
+			if (CLI_MODULES[target]) {
+				console.log(generateHelp(CLI_MODULES[target]));
+				return true;
+			}
+		}
+		printMainHelp();
+		return true;
+	}
 
-  // 检查内置命令
-  if (BUILTIN_COMMANDS[command]) {
-    try {
-      await BUILTIN_COMMANDS[command].handler(remainingArgs);
-      return true;
-    } catch (err: any) {
-      if (err instanceof CliError) {
-        console.error(`✗ ${err.message}`);
-        process.exit(1);
-      }
-      throw err;
-    }
-  }
+	// 检查内置命令
+	if (BUILTIN_COMMANDS[command]) {
+		try {
+			await BUILTIN_COMMANDS[command].handler(remainingArgs);
+			return true;
+		} catch (err: any) {
+			if (err instanceof CliError) {
+				console.error(`✗ ${err.message}`);
+				process.exit(1);
+			}
+			throw err;
+		}
+	}
 
-  // 检查模块
-  const module = CLI_MODULES[command];
-  if (module) {
-    const [actionName, ...moduleArgs] = remainingArgs;
+	// 检查模块
+	const module = CLI_MODULES[command];
+	if (module) {
+		const [actionName, ...moduleArgs] = remainingArgs;
 
-    // 无 action 或请求帮助
-    if (!actionName || actionName === 'help' || moduleArgs.includes('--help') || moduleArgs.includes('-h')) {
-      console.log(generateHelp(module, actionName));
-      return true;
-    }
+		// 无 action 或请求帮助
+		if (
+			!actionName ||
+			actionName === 'help' ||
+			moduleArgs.includes('--help') ||
+			moduleArgs.includes('-h')
+		) {
+			console.log(generateHelp(module, actionName));
+			return true;
+		}
 
-    // 查找动作
-    const action = module.actions[actionName];
-    if (!action) {
-      console.error(`Unknown action: ${actionName} for module: ${command}`);
-      console.error(`Run 'affine-cli ${command} --help' for available actions.`);
-      return false;
-    }
+		// 查找动作
+		const action = module.actions[actionName];
+		if (!action) {
+			console.error(`Unknown action: ${actionName} for module: ${command}`);
+			console.error(`Run 'affine-cli ${command} --help' for available actions.`);
+			return false;
+		}
 
-    // 执行动作
-    try {
-      const result = await action.handler(moduleArgs);
-      outputResult(result, result.success ? 0 : 1);
-      return result.success;
-    } catch (err: any) {
-      console.error(`Error: ${err.message}`);
-      return false;
-    }
-  }
+		// 执行动作
+		try {
+			const result = await action.handler(moduleArgs);
+			outputResult(result, result.success ? 0 : 1);
+			return result.success;
+		} catch (err: any) {
+			console.error(`Error: ${err.message}`);
+			return false;
+		}
+	}
 
-  console.error(`Unknown command: ${command}`);
-  printMainHelp();
-  return false;
+	console.error(`Unknown command: ${command}`);
+	printMainHelp();
+	return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -1029,11 +1345,11 @@ const rawArgs = process.argv.slice(2);
 const cliArgs = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
 
 runCli(cliArgs)
-  .then((success) => process.exit(success ? 0 : 1))
-  .catch((err) => {
-    console.error(`Fatal error: ${err.message}`);
-    process.exit(1);
-  });
+	.then((success) => process.exit(success ? 0 : 1))
+	.catch((err) => {
+		console.error(`Fatal error: ${err.message}`);
+		process.exit(1);
+	});
 
 // 导出模块供外部使用
 export { CLI_MODULES, BUILTIN_COMMANDS };

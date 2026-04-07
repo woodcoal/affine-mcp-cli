@@ -1,6 +1,6 @@
 {
 	"name": "affine-cli",
-	"version": "1.1.1102",
+	"version": "1.11.3",
 	"private": false,
 	"type": "module",
 	"description": "Command Line Interface (CLI) and a Model Context Protocol (MCP) server for interacting with AFFiNE. Enables AI assistants to interact with AFFiNE workspaces, documents, and collaboration features.",

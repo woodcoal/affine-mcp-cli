@@ -11,8 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated project copyright and author information to 木炭 <woodcoal@qq.com>.
-- Relocated repository to `https://github.com/woodcoal/affine-cli`.
+- update and refine cli commands.
 - Replaced missing `README.md` with multi-language versions (English and Chinese).
 - Updated internal documentation links and project metadata.
 

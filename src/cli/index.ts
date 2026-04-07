@@ -335,24 +335,15 @@ async function login(args: string[]): Promise<void> {
 			)
 		};
 	} else {
-		const isSelfHosted = !baseUrl.includes('affine.pro');
-		if (isSelfHosted) {
-			const method = await ask(
-				'\nAuth method — [1] Email/password (recommended)  [2] Paste API token: '
-			);
-			const loginResult =
-				method === '2' ? await loginWithToken(baseUrl) : await loginWithEmail(baseUrl);
-			result = {
-				...loginResult,
-				workspaceId: providedWorkspaceId || loginResult.workspaceId
-			};
-		} else {
-			const loginResult = await loginWithToken(baseUrl);
-			result = {
-				...loginResult,
-				workspaceId: providedWorkspaceId || loginResult.workspaceId
-			};
-		}
+		const method = await ask(
+			'\nAuth method — [1] Email/password (recommended)  [2] Paste API token: '
+		);
+		const loginResult =
+			method === '2' ? await loginWithToken(baseUrl) : await loginWithEmail(baseUrl);
+		result = {
+			...loginResult,
+			workspaceId: providedWorkspaceId || loginResult.workspaceId
+		};
 	}
 
 	writeConfigFile(
@@ -1301,7 +1292,13 @@ export async function runCli(args: string[]): Promise<boolean> {
 	// 检查模块
 	const module = CLI_MODULES[command];
 	if (module) {
-		const [actionName, ...moduleArgs] = remainingArgs;
+		let [actionName, ...moduleArgs] = remainingArgs;
+
+		// 检查 actionName 是否为 --help 或 -h
+		if (actionName === '--help' || actionName === '-h') {
+			console.log(generateHelp(module));
+			return true;
+		}
 
 		// 无 action 或请求帮助
 		if (

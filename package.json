@@ -1,19 +1,19 @@
 {
-	"name": "affine-mcp-server",
-	"version": "1.11.2",
+	"name": "affine-cli",
+	"version": "1.1.1102",
 	"private": false,
 	"type": "module",
-	"description": "Model Context Protocol server for AFFiNE - enables AI assistants to interact with AFFiNE workspaces, documents, and collaboration features.",
-	"author": "dawncr0w",
+	"description": "Command Line Interface (CLI) and a Model Context Protocol (MCP) server for interacting with AFFiNE. Enables AI assistants to interact with AFFiNE workspaces, documents, and collaboration features.",
+	"author": "木炭",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dawncr0w/affine-mcp-server.git"
+		"url": "git+https://github.com/woodcoal/affine-cli.git"
 	},
 	"bugs": {
-		"url": "https://github.com/dawncr0w/affine-mcp-server/issues"
+		"url": "https://github.com/woodcoal/affine-cli/issues"
 	},
-	"homepage": "https://github.com/dawncr0w/affine-mcp-server#readme",
+	"homepage": "https://github.com/woodcoal/affine-cli#readme",
 	"keywords": [
 		"mcp",
 		"affine",

@@ -7,15 +7,15 @@ Thanks for contributing to `affine-mcp-server`.
 - Node.js `18+` is required (Node `20` recommended).
 - You need one AFFiNE instance to run end-to-end checks.
 - Read the project docs first:
-  - `README.md`
-  - `SECURITY.md`
-  - `CODE_OF_CONDUCT.md`
+    - `README.md`
+    - `SECURITY.md`
+    - `CODE_OF_CONDUCT.md`
 
 ## Development Setup
 
 ```bash
-git clone https://github.com/dawncr0w/affine-mcp-server.git
-cd affine-mcp-server
+git clone https://github.com/woodcoal/affine-cli.git
+cd affine-cli
 npm ci
 npm run build
 ```

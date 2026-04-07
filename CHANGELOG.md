@@ -7,14 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-04-07
+
+### Changed
+
+- Updated project copyright and author information to 木炭 <woodcoal@qq.com>.
+- Relocated repository to `https://github.com/woodcoal/affine-cli`.
+- Replaced missing `README.md` with multi-language versions (English and Chinese).
+- Updated internal documentation links and project metadata.
+
 ### Fixed
 
-- `extractTableData` now reads `affine:table` blocks stored with flat dot-notation Y.js keys (`prop:rows.{rowId}.order`, `prop:columns.{colId}.order`, `prop:cells.{rowId}:{colId}.text`) used by self-hosted AFFiNE instances. Previously `block.get("prop:rows")` returned `undefined` for this schema, causing all table exports to show empty tables with `had no readable cell data` warnings.
+- Stale repository links in `CHANGELOG.md` and `package.json`.
 
 ## [1.11.2] - 2026-03-31
 
 ### Fixed
 
+- `extractTableData` now reads `affine:table` blocks stored with flat dot-notation Y.js keys (`prop:rows.{rowId}.order`, `prop:columns.{colId}.order`, `prop:cells.{rowId}:{colId}.text`) used by self-hosted AFFiNE instances. Previously `block.get("prop:rows")` returned `undefined` for this schema, causing all table exports to show empty tables with `had no readable cell data` warnings.
 - `list_docs` now filters out deleted documents that briefly remain in GraphQL edges after workspace metadata has already dropped them.
 - Completed the delete/list_docs hardening introduced in `v1.11.1` so the visible edge list, `totalCount`, and `endCursor` stay aligned after `delete_doc`.
 
@@ -415,23 +425,23 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
-[1.11.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.11.2
-[1.11.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.11.1
-[1.11.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.11.0
-[1.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.10.1
-[1.10.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.10.0
-[1.9.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.9.0
-[1.8.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.8.0
-[1.7.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.7.2
-[1.7.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.7.1
-[1.7.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.7.0
-[1.2.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.2.2
-[1.2.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.2.1
-[1.2.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.2.0
-[1.1.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.1.0
-[1.0.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.0.0
-[1.5.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.5.0
-[1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
-[1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
-[1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v1.11.2...HEAD
+[1.11.2]: https://github.com/woodcoal/affine-cli/releases/tag/v1.11.2
+[1.11.1]: https://github.com/woodcoal/affine-cli/releases/tag/v1.11.1
+[1.11.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.11.0
+[1.10.1]: https://github.com/woodcoal/affine-cli/releases/tag/v1.10.1
+[1.10.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.10.0
+[1.9.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.9.0
+[1.8.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.8.0
+[1.7.2]: https://github.com/woodcoal/affine-cli/releases/tag/v1.7.2
+[1.7.1]: https://github.com/woodcoal/affine-cli/releases/tag/v1.7.1
+[1.7.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.7.0
+[1.2.2]: https://github.com/woodcoal/affine-cli/releases/tag/v1.2.2
+[1.2.1]: https://github.com/woodcoal/affine-cli/releases/tag/v1.2.1
+[1.2.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.2.0
+[1.1.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.1.0
+[1.0.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.0.0
+[1.5.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.5.0
+[1.4.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.4.0
+[1.3.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.3.0
+[1.6.0]: https://github.com/woodcoal/affine-cli/releases/tag/v1.6.0
+[Unreleased]: https://github.com/woodcoal/affine-cli/compare/v1.11.2...HEAD

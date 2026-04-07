@@ -1,68 +1,84 @@
-# AGENTS.md - AFFiNE MCP Server
+# AFFiNE CLI & MCP Server
 
-## 项目概述
+## Project Overview
 
-AFFiNE MCP Server 是一个 MCP（Model Context Protocol）服务器，通过 stdio（默认）或 HTTP 传输连接 AFFiNE 工作区和文档。
+`affine-cli` is a Node.js-based project providing a Command Line Interface (CLI) and a Model Context Protocol (MCP) server for interacting with AFFiNE. It enables AI assistants (like Claude, Cursor, and Gemini) and users to interact with AFFiNE workspaces, documents, blocks, and collaboration features via GraphQL.
 
-## 开发命令
+### Key Features
 
-```bash
-# 安装依赖
-npm ci
+- **Modular CLI:** Command-line access to workspaces, docs, comments, history, and more.
+- **MCP Server:** Exposes AFFiNE functionality as tools for AI assistants using the Model Context Protocol.
+- **Rich Document Support:** Handles blocks, databases, and markdown roundtrips using Yjs and Markdown-it.
+- **Flexible Auth:** Supports API tokens, cookies, email/password login, and OAuth.
+- **Tool Filtering:** Ability to disable specific tool groups or individual tools via environment variables.
 
-# 构建
-npm run build
+## Main Technologies
 
-# 质量检查（CI 流水线）
-npm run ci  # = build + test:tool-manifest + pack:check
+- **Runtime:** Node.js (>= 18)
+- **Language:** TypeScript
+- **Protocol:** Model Context Protocol (MCP) SDK
+- **Data Access:** GraphQL (via `undici` and custom client)
+- **Document Engine:** Yjs (for shared state)
+- **Web/SSE:** Express (for HTTP/SSE MCP transport)
+- **Parsing:** Markdown-it, Zod (validation)
 
-# 本地测试（需要 AFFiNE 实例）
-AFFINE_BASE_URL=http://localhost:3010 \
-AFFINE_EMAIL=dev@affine.pro \
-AFFINE_PASSWORD=dev \
-npm run test:comprehensive
-```
+## Project Architecture
 
-## 工具管理
+- `src/core/`: Core business logic and data models.
+    - `docs/`: Block manipulation, CRUD, database handling, markdown conversion, and search.
+    - `workspace.ts`: Workspace management logic.
+    - `organize.ts`: Collections and folder management.
+- `src/cli/`: CLI entry point and modular command implementations (docs, workspaces, users, etc.).
+- `src/mcp/`: MCP server implementation, tool registrations, and filtering logic.
+- `src/client/`: Implementation of SSE, HTTP, and GraphQL clients.
+- `src/markdown/`: Markdown rendering and parsing logic.
+- `bin/`: Executable scripts for `affine-cli` and `affine-mcp`.
 
-- 工具注册在 `src/mcp/*.ts` 文件中（按功能分组）
-- `tool-manifest.json` 是工具清单的权威来源
-- **任何工具变更必须同步更新 `tool-manifest.json`**
-- 运行 `npm run test:tool-manifest` 验证一致性
+## Building and Running
 
-## 分支与发布
+### Prerequisites
 
-- PR 只允许提交到 `develop` 分支（CI 强制执行）
-- 发布准备从 `release/x.y.z` 分支进行，然后合并到 `main`
-- 发布前同步：`package.json`、`package-lock.json`、`tool-manifest.json`、`README.md`、`CHANGELOG.md`、`RELEASE_NOTES.md`
+- Node.js >= 18
+- npm
 
-## CLI 命令
+### Key Commands
 
-```bash
-affine-mcp login          # 交互式登录（推荐）
-affine-mcp status         # 显示配置和连接状态
-affine-mcp doctor         # 诊断工具
-affine-mcp logout         # 清除凭证
-affine-mcp snippet <client> # 生成客户端配置片段
-```
+- **Build:** `npm run build` (Clean and compile TypeScript)
+- **Clean:** `npm run clean` (Remove `dist/` directory)
+- **Run CLI (Dev):** `npm run dev`
+- **Run MCP Server (Dev):** `npm run dev:mcp` (Stdio transport)
+- **Run MCP Server (HTTP):** `npm run start:http` (SSE transport)
+- **Login:** `affine-cli login` (Interactive setup)
+- **Diagnostics:** `affine-cli doctor` (Check configuration and connectivity)
 
-## 配置
+## Testing
 
-- 配置优先级（从高到低）：环境变量 > 本地 `.env` > 全局 `~/.affine-cli/affine-cli.env`
-- 全局配置文件位置：`~/.affine-cli/affine-cli.env`（mode 600）
-- 本地配置文件位置：运行目录下的 `.env`
-- 认证优先级：`AFFINE_API_TOKEN` → `AFFINE_COOKIE` → `AFFINE_EMAIL` + `AFFINE_PASSWORD`
-- Cloudflare 注意：AFFiNE Cloud (`app.affine.pro`) 阻止 email/password 登录，需使用 API Token
+- **Main Test Suite:** `npm test`
+- **Comprehensive Tests:** `npm run test:comprehensive`
+- **E2E Tests:** `npm run test:e2e` (Requires active server environment)
+- **Specific Tests:** Many specialized scripts exist for databases, markdown, auth, and tool filtering (see `package.json` scripts).
 
-## 传输模式
+## Development Conventions
 
-- stdio（默认）：桌面 MCP 客户端
-- HTTP：`MCP_TRANSPORT=http` + `npm run start:http`
+### Configuration
 
-## 关键文件
+Configuration follows a hierarchy (higher priority first):
 
-- `src/index.ts` - 入口点，工具注册和传输选择
-- `src/config.ts` - 配置加载和验证
-- `src/mcp/*.ts` - 工具注册（按功能模块）
-- `src/core/*.ts` - 工具实现逻辑
-- `src/client/` - GraphQL 客户端、WebSocket、HTTP 服务
+1. **Environment Variables** (e.g., `AFFINE_API_TOKEN`, `AFFINE_BASE_URL`)
+2. **Local `.env` file** in the current working directory.
+3. **Global config file** at `~/.affine-cli/affine-cli.env`.
+
+### Coding Style
+
+- **ES Modules:** The project uses `"type": "module"`.
+- **Modular Commands:** When adding CLI commands, register them in `src/cli/index.ts` and implement in a dedicated file in `src/cli/`.
+- **Modular MCP Tools:** Register new MCP tools in the relevant group file within `src/mcp/`.
+- **Error Handling:** Use custom error classes (like `CliError`) and provide descriptive error messages to the user/LLM.
+- **Validation:** Use Zod for validating tool inputs and configuration values.
+
+### Tool Filtering
+
+You can disable specific MCP tool groups or tools using:
+
+- `AFFINE_DISABLED_GROUPS`: e.g., `comments,history`
+- `AFFINE_DISABLED_TOOLS`: e.g., `list_workspaces,get_doc`

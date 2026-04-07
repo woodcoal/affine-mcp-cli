@@ -165,9 +165,15 @@ export function parseArgs(
 	const errors: string[] = [];
 	const positional: string[] = [];
 
-	// 初始化所有参数为默认值
+	// 初始化所有参数为默认值并进行类型转换
 	for (const def of argDefs) {
-		parsed[def.name] = def.default;
+		if (def.default !== undefined) {
+			if (def.type === 'number') {
+				parsed[def.name] = Number(def.default);
+			} else {
+				parsed[def.name] = def.default;
+			}
+		}
 	}
 
 	let i = 0;

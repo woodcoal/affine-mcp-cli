@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 
 /**
@@ -9,10 +8,10 @@ export async function listAccessTokensHandler() {
 	try {
 		const query = `query { currentUser { accessTokens { id name createdAt expiresAt } } }`;
 		const data = await gql.request<{ currentUser: { accessTokens: any[] } }>(query);
-		return text(data.currentUser?.accessTokens || []);
+		return data.currentUser?.accessTokens || [];
 	} catch (error: any) {
 		console.error('List access tokens error:', error.message);
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -25,7 +24,7 @@ export async function generateAccessTokenHandler(params: { name: string; expires
 	const data = await gql.request<{ generateUserAccessToken: any }>(mutation, {
 		input: { name: params.name, expiresAt: params.expiresAt ?? null }
 	});
-	return text(data.generateUserAccessToken);
+	return data.generateUserAccessToken;
 }
 
 /**
@@ -37,5 +36,5 @@ export async function revokeAccessTokenHandler(params: { id: string }) {
 	const data = await gql.request<{ revokeUserAccessToken: boolean }>(mutation, {
 		id: params.id
 	});
-	return text({ success: data.revokeUserAccessToken });
+	return { success: data.revokeUserAccessToken };
 }

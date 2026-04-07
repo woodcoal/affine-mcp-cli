@@ -11,7 +11,7 @@ export type CommandResult = {
 
 /**
  * 解析 core 函数返回的结果
- * core 函数返回 { content: [{ type: 'text', text: '...' }] } 格式
+ * core 函数直接返回原始值
  */
 export function parseCoreResult(result: any): any {
 	if (!result) return result;
@@ -20,16 +20,6 @@ export function parseCoreResult(result: any): any {
 			return JSON.parse(result);
 		} catch {
 			return result;
-		}
-	}
-	if (result.content && Array.isArray(result.content)) {
-		const text = result.content[0]?.text;
-		if (text) {
-			try {
-				return JSON.parse(text);
-			} catch {
-				return text;
-			}
 		}
 	}
 	return result;

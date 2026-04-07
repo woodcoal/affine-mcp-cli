@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 
 /**
@@ -8,5 +7,5 @@ export async function currentUserHandler() {
 	const gql = await createGraphQLClient();
 	const query = `query Me { currentUser { id name email emailVerified avatarUrl disabled } }`;
 	const data = await gql.request<{ currentUser: any }>(query);
-	return text(data.currentUser);
+	return data.currentUser;
 }

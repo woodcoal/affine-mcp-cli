@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import { createGraphQLClient } from '../../graphqlClient.js';
 import {
 	wsUrlFromGraphQLEndpoint,
@@ -152,7 +152,7 @@ export async function listDocsHandler(parsed: {
 		edges: visibleEdges
 	};
 
-	return text(mergedDocs);
+	return mergedDocs;
 }
 
 /**
@@ -171,7 +171,7 @@ export async function getDocHandler(parsed: { workspaceId?: string; docId: strin
 		workspaceId,
 		docId: parsed.docId
 	});
-	return text(data.workspace.doc);
+	return data.workspace.doc;
 }
 
 /**
@@ -205,7 +205,7 @@ export async function readDocHandler(parsed: {
 		const snapshot = await loadDoc(socket, workspaceId, parsed.docId);
 
 		if (!snapshot.missing) {
-			return text({
+			return {
 				docId: parsed.docId,
 				title: null,
 				tags: [],
@@ -213,7 +213,7 @@ export async function readDocHandler(parsed: {
 				blockCount: 0,
 				blocks: [],
 				plainText: ''
-			});
+			};
 		}
 
 		const doc = new Y.Doc();
@@ -298,7 +298,7 @@ export async function readDocHandler(parsed: {
 			markdown = rendered.markdown;
 		}
 
-		return text({
+		return {
 			docId: parsed.docId,
 			title: title || null,
 			tags,
@@ -307,7 +307,7 @@ export async function readDocHandler(parsed: {
 			blocks: blockRows,
 			plainText: plainTextLines.join('\n'),
 			...(markdown !== undefined ? { markdown } : {})
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -322,7 +322,7 @@ export async function createDocHandler(parsed: {
 	content?: string;
 }) {
 	const created = await createDocInternal(parsed);
-	return text({ docId: created.docId, title: created.title });
+	return { docId: created.docId, title: created.title };
 }
 
 /**
@@ -358,7 +358,7 @@ export async function deleteDocHandler(parsed: { workspaceId?: string; docId: st
 			Buffer.from(wsDelta).toString('base64')
 		);
 		wsDeleteDoc(socket, workspaceId, parsed.docId);
-		return text({ deleted: true });
+		return { deleted: true };
 	} finally {
 		socket.disconnect();
 	}
@@ -423,7 +423,7 @@ export async function updateDocTitleHandler(parsed: {
 				Buffer.from(delta).toString('base64')
 			);
 		}
-		return text({ updated: true, docId: parsed.docId, title: newTitle });
+		return { updated: true, docId: parsed.docId, title: newTitle };
 	} finally {
 		socket.disconnect();
 	}
@@ -481,13 +481,13 @@ export async function duplicateDocHandler(parsed: {
 				/* non-fatal */
 			}
 		}
-		return text({
+		return {
 			sourceDocId: parsed.docId,
 			docId: created.docId,
 			title: created.title,
 			linkedToParent,
 			warnings: created.warnings ?? []
-		});
+		};
 	} catch (err) {
 		try {
 			socket.disconnect();
@@ -543,11 +543,11 @@ export async function createDocFromTemplateHandler(parsed: {
 			parentDocId: parsed.parentDocId
 		});
 
-		return text({
+		return {
 			...created,
 			sourceTemplateDocId: parsed.templateDocId,
 			unfilledVariables: unfilled
-		});
+		};
 	} catch (err) {
 		try {
 			socket.disconnect();

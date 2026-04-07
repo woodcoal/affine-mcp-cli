@@ -14,6 +14,6 @@ export function registerAuthTools(server: McpServer) {
         password: z.string().min(1),
       },
     },
-    auth.signInHandler,
+    auth.signInHandler as any,
   );
 }

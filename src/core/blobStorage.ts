@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
@@ -76,7 +75,7 @@ export async function uploadBlobHandler(params: {
 			throw new Error('Upload succeeded but no blob key was returned.');
 		}
 
-		return text({
+		return {
 			id: blobKey,
 			key: blobKey,
 			workspaceId,
@@ -84,9 +83,9 @@ export async function uploadBlobHandler(params: {
 			contentType: mime,
 			size: payload.length,
 			uploadedAt: new Date().toISOString()
-		});
+		};
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -114,9 +113,9 @@ export async function deleteBlobHandler(params: {
 			permanently
 		});
 
-		return text({ success: data.deleteBlob, key, workspaceId, permanently });
+		return { success: data.deleteBlob, key, workspaceId, permanently };
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -138,12 +137,12 @@ export async function cleanupBlobsHandler(params: { workspaceId: string }) {
 			workspaceId
 		});
 
-		return text({
+		return {
 			success: true,
 			workspaceId,
 			blobsReleased: data.releaseDeletedBlobs
-		});
+		};
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }

@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import {
 	wsUrlFromGraphQLEndpoint,
 	connectWorkspaceSocket,
@@ -49,7 +49,7 @@ export async function exportDocMarkdownHandler(parsed: {
 
 		const snapshot = await loadDoc(socket, workspaceId, parsed.docId);
 		if (!snapshot.missing) {
-			return text({
+			return {
 				docId: parsed.docId,
 				title: null,
 				tags: [],
@@ -61,7 +61,7 @@ export async function exportDocMarkdownHandler(parsed: {
 					blockCount: 0,
 					unsupportedCount: 0
 				}
-			});
+			};
 		}
 
 		const doc = new Y.Doc();
@@ -89,7 +89,7 @@ export async function exportDocMarkdownHandler(parsed: {
 			markdown = `${frontmatterLines.join('\n')}\n\n${markdown}`;
 		}
 
-		return text({
+		return {
 			docId: parsed.docId,
 			title: collected.title || null,
 			tags: collected.tags,
@@ -98,7 +98,7 @@ export async function exportDocMarkdownHandler(parsed: {
 			warnings: rendered.warnings,
 			lossy: rendered.lossy,
 			stats: rendered.stats
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -113,7 +113,7 @@ export async function createDocFromMarkdownHandler(parsed: {
 	markdown: string;
 	strict?: boolean;
 }) {
-	return text(await createDocFromMarkdownCore(parsed));
+	return await createDocFromMarkdownCore(parsed);
 }
 
 /**
@@ -161,7 +161,7 @@ export async function batchCreateDocsHandler(parsed: {
 	}
 
 	const failed = results.filter((r) => !r.docId).length;
-	return text({ created: results.length - failed, failed, results });
+	return { created: results.length - failed, failed, results };
 }
 
 /**
@@ -197,7 +197,7 @@ export async function appendMarkdownHandler(parsed: {
 				]
 			: [];
 
-	return text({
+	return {
 		workspaceId,
 		docId: parsed.docId,
 		appended: applied.appendedCount > 0,
@@ -210,7 +210,7 @@ export async function appendMarkdownHandler(parsed: {
 			appliedBlocks: applied.appendedCount,
 			skippedBlocks: applied.skippedCount
 		}
-	});
+	};
 }
 
 /**
@@ -245,7 +245,7 @@ export async function replaceDocWithMarkdownHandler(parsed: {
 				]
 			: [];
 
-	return text({
+	return {
 		workspaceId,
 		docId: parsed.docId,
 		replaced: true,
@@ -256,5 +256,5 @@ export async function replaceDocWithMarkdownHandler(parsed: {
 			appliedBlocks: applied.appendedCount,
 			skippedBlocks: applied.skippedCount
 		}
-	});
+	};
 }

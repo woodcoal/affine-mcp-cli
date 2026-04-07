@@ -1,4 +1,4 @@
-import { text, getDefaultWorkspaceId } from './utils.js';
+import { getDefaultWorkspaceId } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 import {
 	wsUrlFromGraphQLEndpoint,
@@ -31,7 +31,7 @@ export async function listCommentsHandler(params: {
 		offset,
 		after
 	});
-	return text(data.workspace.comments);
+	return data.workspace.comments;
 }
 
 /**
@@ -63,7 +63,7 @@ export async function createCommentHandler(params: {
 		mentions: params.mentions
 	};
 	const data = await gql.request<{ createComment: any }>(mutation, { input });
-	return text(data.createComment);
+	return data.createComment;
 }
 
 /**
@@ -75,7 +75,7 @@ export async function updateCommentHandler(params: { id: string; content: any })
 	const data = await gql.request<{ updateComment: boolean }>(mutation, {
 		input: { id: params.id, content: params.content }
 	});
-	return text({ success: data.updateComment });
+	return { success: data.updateComment };
 }
 
 /**
@@ -87,7 +87,7 @@ export async function deleteCommentHandler(params: { id: string }) {
 	const data = await gql.request<{ deleteComment: boolean }>(mutation, {
 		id: params.id
 	});
-	return text({ success: data.deleteComment });
+	return { success: data.deleteComment };
 }
 
 /**
@@ -99,7 +99,7 @@ export async function resolveCommentHandler(params: { id: string; resolved: bool
 	const data = await gql.request<{ resolveComment: boolean }>(mutation, {
 		input: params
 	});
-	return text({ success: data.resolveComment });
+	return { success: data.resolveComment };
 }
 
 /**
@@ -123,7 +123,7 @@ export async function listWorkspaceDocsHandler(params: ListWorkspaceDocsParams) 
 		await joinWorkspace(socket, workspaceId);
 		const snapshot = await loadDoc(socket, workspaceId, workspaceId);
 		if (!snapshot.missing) {
-			return text({ workspaceId, docs: [] });
+			return { workspaceId, docs: [] };
 		}
 
 		const wsDoc = new Y.Doc();
@@ -132,7 +132,7 @@ export async function listWorkspaceDocsHandler(params: ListWorkspaceDocsParams) 
 		const pages = meta.get('pages');
 
 		if (!(pages instanceof Y.Array)) {
-			return text({ workspaceId, docs: [] });
+			return { workspaceId, docs: [] };
 		}
 
 		const docs: any[] = [];
@@ -155,7 +155,7 @@ export async function listWorkspaceDocsHandler(params: ListWorkspaceDocsParams) 
 			}
 		}
 
-		return text({ workspaceId, docs });
+		return { workspaceId, docs };
 	} finally {
 		socket.disconnect();
 	}

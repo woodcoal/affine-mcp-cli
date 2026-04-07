@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import {
 	wsUrlFromGraphQLEndpoint,
 	connectWorkspaceSocket,
@@ -40,7 +40,7 @@ export async function listTagsHandler(parsed: { workspaceId?: string }) {
 		await joinWorkspace(socket, workspaceId);
 		const snapshot = await loadDoc(socket, workspaceId, workspaceId);
 		if (!snapshot.missing) {
-			return text({ workspaceId, totalTags: 0, tags: [] });
+			return { workspaceId, totalTags: 0, tags: [] };
 		}
 
 		const wsDoc = new Y.Doc();
@@ -77,11 +77,11 @@ export async function listTagsHandler(parsed: { workspaceId?: string }) {
 			.sort((a, b) => a[0].localeCompare(b[0]))
 			.map(([name, docCount]) => ({ name, docCount }));
 
-		return text({
+		return {
 			workspaceId,
 			totalTags: tags.length,
 			tags
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -111,7 +111,7 @@ export async function listDocsByTagHandler(parsed: {
 		await joinWorkspace(socket, workspaceId);
 		const snapshot = await loadDoc(socket, workspaceId, workspaceId);
 		if (!snapshot.missing) {
-			return text({ workspaceId, tag, ignoreCase, totalDocs: 0, docs: [] });
+			return { workspaceId, tag, ignoreCase, totalDocs: 0, docs: [] };
 		}
 
 		const wsDoc = new Y.Doc();
@@ -138,13 +138,13 @@ export async function listDocsByTagHandler(parsed: {
 			)
 			.map(({ rawTags: _rawTags, ...page }) => page);
 
-		return text({
+		return {
 			workspaceId,
 			tag,
 			ignoreCase,
 			totalDocs: docs.length,
 			docs
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -178,7 +178,7 @@ export async function createTagHandler(parsed: { workspaceId?: string; tag: stri
 		const meta = wsDoc.getMap('meta');
 		const { created } = ensureWorkspaceTagOption(meta, tag);
 		if (!created) {
-			return text({ workspaceId, tag, created: false });
+			return { workspaceId, tag, created: false };
 		}
 
 		const delta = Y.encodeStateAsUpdate(wsDoc, prevSV);
@@ -188,7 +188,7 @@ export async function createTagHandler(parsed: { workspaceId?: string; tag: stri
 			workspaceId,
 			Buffer.from(delta).toString('base64')
 		);
-		return text({ workspaceId, tag, created: true });
+		return { workspaceId, tag, created: true };
 	} finally {
 		socket.disconnect();
 	}
@@ -270,7 +270,7 @@ export async function addTagToDocHandler(parsed: {
 
 		const { byId } = getWorkspaceTagOptionMaps(wsMeta);
 
-		return text({
+		return {
 			workspaceId,
 			docId: parsed.docId,
 			tag,
@@ -278,7 +278,7 @@ export async function addTagToDocHandler(parsed: {
 			tags: resolveTagLabels(getStringArray(pageTags), byId),
 			docMetaSynced,
 			warning
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -361,7 +361,7 @@ export async function removeTagFromDocHandler(parsed: {
 
 		const { byId } = getWorkspaceTagOptionMaps(wsMeta);
 
-		return text({
+		return {
 			workspaceId,
 			docId: parsed.docId,
 			tag,
@@ -369,7 +369,7 @@ export async function removeTagFromDocHandler(parsed: {
 			tags: resolveTagLabels(getStringArray(pageTags), byId),
 			docMetaSynced,
 			warning
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -387,7 +387,7 @@ export async function getDocsByTagHandler(parsed: { workspaceId?: string; tag: s
 	try {
 		await joinWorkspace(socket, workspaceId);
 		const wsSnap = await loadDoc(socket, workspaceId, workspaceId);
-		if (!wsSnap.missing) return text({ tag: parsed.tag, count: 0, docs: [] });
+		if (!wsSnap.missing) return { tag: parsed.tag, count: 0, docs: [] };
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(wsSnap.missing, 'base64'));
 		const meta = wsDoc.getMap('meta');
@@ -397,12 +397,12 @@ export async function getDocsByTagHandler(parsed: { workspaceId?: string; tag: s
 			options.filter((o) => o.value.toLowerCase().includes(q)).map((o) => o.id)
 		);
 		if (matchingTagIds.size === 0) {
-			return text({
+			return {
 				tag: parsed.tag,
 				count: 0,
 				docs: [],
 				availableTags: options.map((o) => o.value)
-			});
+			};
 		}
 		const pages = getWorkspacePageEntries(meta);
 		const baseUrl = (
@@ -420,7 +420,7 @@ export async function getDocsByTagHandler(parsed: { workspaceId?: string; tag: s
 				tags: resolveTagLabels(rawTagIds, byId),
 				url: `${baseUrl}/workspace/${workspaceId}/${p.id}`
 			}));
-		return text({ tag: parsed.tag, count: matched.length, docs: matched });
+		return { tag: parsed.tag, count: matched.length, docs: matched };
 	} finally {
 		socket.disconnect();
 	}

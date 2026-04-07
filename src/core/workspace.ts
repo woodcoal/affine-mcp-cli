@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 import {
 	connectWorkspaceSocket,
@@ -131,9 +130,9 @@ export async function listWorkspacesHandler() {
 	try {
 		const query = `query { workspaces { id public enableAi createdAt } }`;
 		const data = await gql.request<{ workspaces: any[] }>(query);
-		return text(data.workspaces || []);
+		return data.workspaces || [];
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -157,9 +156,9 @@ export async function getWorkspaceHandler(params: { id: string }) {
       }
     }`;
 		const data = await gql.request<{ workspace: any }>(query, { id });
-		return text(data.workspace);
+		return data.workspace;
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -237,7 +236,7 @@ export async function createWorkspaceHandler(params: { name: string; avatar?: st
 				socket.disconnect();
 			}
 		} catch (_wsError) {
-			return text({
+			return {
 				...workspace,
 				name,
 				avatar,
@@ -245,10 +244,10 @@ export async function createWorkspaceHandler(params: { name: string; avatar?: st
 				status: 'partial',
 				message: 'Workspace created (document sync may be pending)',
 				url: `${baseUrl}/workspace/${workspace.id}`
-			});
+			};
 		}
 
-		return text({
+		return {
 			...workspace,
 			name,
 			avatar,
@@ -256,9 +255,9 @@ export async function createWorkspaceHandler(params: { name: string; avatar?: st
 			status: 'success',
 			message: 'Workspace created successfully',
 			url: `${baseUrl}/workspace/${workspace.id}`
-		});
+		};
 	} catch (error: any) {
-		return text({ error: error.message, status: 'failed' });
+		return { error: error.message, status: 'failed' };
 	}
 }
 
@@ -291,9 +290,9 @@ export async function updateWorkspaceHandler(params: {
 			input
 		});
 
-		return text(data.updateWorkspace);
+		return data.updateWorkspace;
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -314,11 +313,11 @@ export async function deleteWorkspaceHandler(params: { id: string }) {
 			id
 		});
 
-		return text({
+		return {
 			success: data.deleteWorkspace,
 			message: 'Workspace deleted successfully'
-		});
+		};
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }

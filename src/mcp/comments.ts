@@ -16,7 +16,7 @@ export function registerCommentTools(server: McpServer) {
         after: z.string().optional(),
       },
     },
-    comments.listCommentsHandler,
+    comments.listCommentsHandler as any,
   );
 
   server.registerTool(
@@ -33,7 +33,7 @@ export function registerCommentTools(server: McpServer) {
         mentions: z.array(z.string()).optional(),
       },
     },
-    comments.createCommentHandler,
+    comments.createCommentHandler as any,
   );
 
   server.registerTool(
@@ -46,7 +46,7 @@ export function registerCommentTools(server: McpServer) {
         content: z.any(),
       },
     },
-    comments.updateCommentHandler,
+    comments.updateCommentHandler as any,
   );
 
   server.registerTool(
@@ -58,7 +58,7 @@ export function registerCommentTools(server: McpServer) {
         id: z.string(),
       },
     },
-    comments.deleteCommentHandler,
+    comments.deleteCommentHandler as any,
   );
 
   server.registerTool(
@@ -71,6 +71,6 @@ export function registerCommentTools(server: McpServer) {
         resolved: z.boolean(),
       },
     },
-    comments.resolveCommentHandler,
+    comments.resolveCommentHandler as any,
   );
 }

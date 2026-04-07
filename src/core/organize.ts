@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { text, getDefaultWorkspaceId } from './utils.js';
+import { getDefaultWorkspaceId } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 import {
 	connectWorkspaceSocket,
@@ -348,7 +348,7 @@ export async function listCollectionsHandler(params: { workspaceId?: string }) {
 		const setting = doc.getMap('setting');
 		const current = setting.get('collections');
 		const collections = current instanceof Y.Array ? readCollections(current) : [];
-		return text([...collections].sort((left, right) => left.name.localeCompare(right.name)));
+		return [...collections].sort((left, right) => left.name.localeCompare(right.name));
 	} finally {
 		socket.disconnect();
 	}
@@ -371,7 +371,7 @@ export async function getCollectionHandler(params: { workspaceId?: string; colle
 		if (!collection) {
 			throw new Error(`Collection '${collectionId}' was not found.`);
 		}
-		return text(collection);
+		return collection;
 	} finally {
 		socket.disconnect();
 	}
@@ -405,7 +405,7 @@ export async function createCollectionHandler(params: { workspaceId?: string; na
 
 		current.push([collection]);
 		await saveWorkspaceRootDoc(socket, resolvedWorkspaceId, doc);
-		return text(collection);
+		return collection;
 	} finally {
 		socket.disconnect();
 	}
@@ -450,7 +450,7 @@ export async function updateCollectionHandler(params: {
 		});
 
 		await saveWorkspaceRootDoc(socket, resolvedWorkspaceId, doc);
-		return text(next);
+		return next;
 	} finally {
 		socket.disconnect();
 	}
@@ -480,7 +480,7 @@ export async function deleteCollectionHandler(params: {
 		}
 		current.delete(index, 1);
 		await saveWorkspaceRootDoc(socket, resolvedWorkspaceId, doc);
-		return text({ success: true, collectionId });
+		return { success: true, collectionId };
 	} finally {
 		socket.disconnect();
 	}
@@ -522,7 +522,7 @@ export async function addDocToCollectionHandler(params: {
 			current.insert(index, [next]);
 		});
 		await saveWorkspaceRootDoc(socket, resolvedWorkspaceId, doc);
-		return text(next);
+		return next;
 	} finally {
 		socket.disconnect();
 	}
@@ -564,7 +564,7 @@ export async function removeDocFromCollectionHandler(params: {
 			current.insert(index, [next]);
 		});
 		await saveWorkspaceRootDoc(socket, resolvedWorkspaceId, doc);
-		return text(next);
+		return next;
 	} finally {
 		socket.disconnect();
 	}
@@ -581,11 +581,11 @@ export async function listOrganizeNodesHandler(params: { workspaceId?: string })
 		await joinWorkspace(socket, resolvedWorkspaceId);
 		const { docId, doc } = await loadFoldersDoc(socket, resolvedWorkspaceId);
 		const nodes = sortOrganizeNodes(readOrganizeNodes(doc));
-		return text({
+		return {
 			workspaceId: resolvedWorkspaceId,
 			storageDocId: docId,
 			nodes
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -620,14 +620,14 @@ export async function createFolderHandler(params: {
 		record.set('index', folderIndex);
 		record.delete('$$DELETED');
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({
+		return {
 			id: folderId,
 			parentId: resolvedParentId,
 			type: 'folder',
 			data: name,
 			index: folderIndex,
 			storageDocId: docId
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -652,7 +652,7 @@ export async function renameFolderHandler(params: {
 		const record = ensureRecord(doc, folderId);
 		record.set('data', name);
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({ id: folderId, name });
+		return { id: folderId, name };
 	} finally {
 		socket.disconnect();
 	}
@@ -691,7 +691,7 @@ export async function deleteFolderHandler(params: { workspaceId?: string; folder
 		}
 
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({ success: true, deletedIds });
+		return { success: true, deletedIds };
 	} finally {
 		socket.disconnect();
 	}
@@ -740,7 +740,7 @@ export async function moveOrganizeNodeHandler(params: {
 		record.set('parentId', resolvedParentId);
 		record.set('index', nextIndex);
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({ id: nodeId, parentId: resolvedParentId, index: nextIndex });
+		return { id: nodeId, parentId: resolvedParentId, index: nextIndex };
 	} finally {
 		socket.disconnect();
 	}
@@ -775,14 +775,14 @@ export async function addOrganizeLinkHandler(params: {
 		record.set('index', nextIndex);
 		record.delete('$$DELETED');
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({
+		return {
 			id: linkId,
 			parentId: folderId,
 			type,
 			data: targetId,
 			index: nextIndex,
 			storageDocId: docId
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -805,7 +805,7 @@ export async function deleteOrganizeLinkHandler(params: { workspaceId?: string; 
 		}
 		deleteRecord(ensureRecord(doc, nodeId));
 		await saveFoldersDoc(socket, resolvedWorkspaceId, docId, doc);
-		return text({ success: true, nodeId });
+		return { success: true, nodeId };
 	} finally {
 		socket.disconnect();
 	}

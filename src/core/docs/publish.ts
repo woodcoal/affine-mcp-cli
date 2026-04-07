@@ -1,4 +1,4 @@
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import { createGraphQLClient } from '../../graphqlClient.js';
 
 /**
@@ -22,7 +22,7 @@ export async function publishDocHandler(parsed: {
 		docId: parsed.docId,
 		mode: parsed.mode
 	});
-	return text(data.publishDoc);
+	return data.publishDoc;
 }
 
 /**
@@ -41,5 +41,5 @@ export async function revokeDocHandler(parsed: { workspaceId?: string; docId: st
 		workspaceId,
 		docId: parsed.docId
 	});
-	return text(data.revokePublicDoc);
+	return data.revokePublicDoc;
 }

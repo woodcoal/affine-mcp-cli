@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import {
 	wsUrlFromGraphQLEndpoint,
 	connectWorkspaceSocket,
@@ -68,7 +68,7 @@ export async function searchDocsHandler(parsed: {
 		await joinWorkspace(socket, workspaceId);
 		const snapshot = await loadDoc(socket, workspaceId, workspaceId);
 		if (!snapshot.missing) {
-			return text({ query: q, results: [], totalCount: 0 });
+			return { query: q, results: [], totalCount: 0 };
 		}
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(snapshot.missing, 'base64'));
@@ -129,7 +129,7 @@ export async function searchDocsHandler(parsed: {
 			url: entry.url
 		}));
 
-		return text({
+		return {
 			query: parsed.query,
 			tag: parsed.tag ?? null,
 			matchMode,
@@ -137,7 +137,7 @@ export async function searchDocsHandler(parsed: {
 			sortDirection,
 			totalCount,
 			results: matches
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -159,7 +159,7 @@ export async function getDocByTitleHandler(parsed: {
 	try {
 		await joinWorkspace(socket, workspaceId);
 		const wsSnap = await loadDoc(socket, workspaceId, workspaceId);
-		if (!wsSnap.missing) return text({ query: parsed.query, found: false, results: [] });
+		if (!wsSnap.missing) return { query: parsed.query, found: false, results: [] };
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(wsSnap.missing, 'base64'));
 		const q = parsed.query.toLowerCase();
@@ -167,7 +167,7 @@ export async function getDocByTitleHandler(parsed: {
 		const matches = getWorkspacePageEntries(wsDoc.getMap('meta'))
 			.filter((p) => p.title && p.title.toLowerCase().includes(q))
 			.slice(0, limit);
-		if (matches.length === 0) return text({ query: parsed.query, found: false, results: [] });
+		if (matches.length === 0) return { query: parsed.query, found: false, results: [] };
 		const results = [];
 		for (const match of matches) {
 			const snap = await loadDoc(socket, workspaceId, match.id);
@@ -190,11 +190,11 @@ export async function getDocByTitleHandler(parsed: {
 				url: `${(process.env.AFFINE_BASE_URL || endpoint.replace(/\/graphql\/?$/, '')).replace(/\/$/, '')}/workspace/${workspaceId}/${match.id}`
 			});
 		}
-		return text({
+		return {
 			query: parsed.query,
 			found: results.some((r) => (r as any).found),
 			results
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -213,7 +213,7 @@ export async function listWorkspaceTreeHandler(parsed: { workspaceId?: string; d
 	try {
 		await joinWorkspace(socket, workspaceId);
 		const wsSnap = await loadDoc(socket, workspaceId, workspaceId);
-		if (!wsSnap.missing) return text({ workspaceId, tree: [] });
+		if (!wsSnap.missing) return { workspaceId, tree: [] };
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(wsSnap.missing, 'base64'));
 		const pages = getWorkspacePageEntries(wsDoc.getMap('meta'));
@@ -251,12 +251,12 @@ export async function listWorkspaceTreeHandler(parsed: { workspaceId?: string; d
 					? (childrenOf.get(id) ?? []).map((cid) => buildNode(cid, depth + 1))
 					: []
 		});
-		return text({
+		return {
 			workspaceId,
 			totalDocs: pages.length,
 			rootCount: roots.length,
 			tree: roots.map((id) => buildNode(id, 0))
-		});
+		};
 	} finally {
 		socket.disconnect();
 	}
@@ -274,7 +274,7 @@ export async function getOrphanDocsHandler(parsed: { workspaceId?: string }) {
 	try {
 		await joinWorkspace(socket, workspaceId);
 		const wsSnap = await loadDoc(socket, workspaceId, workspaceId);
-		if (!wsSnap.missing) return text({ orphans: [] });
+		if (!wsSnap.missing) return { orphans: [] };
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(wsSnap.missing, 'base64'));
 		const pages = getWorkspacePageEntries(wsDoc.getMap('meta'));
@@ -303,7 +303,7 @@ export async function getOrphanDocsHandler(parsed: { workspaceId?: string }) {
 				title: titleById.get(p.id) ?? 'Untitled',
 				url: `${baseUrl}/workspace/${workspaceId}/${p.id}`
 			}));
-		return text({ count: orphans.length, orphans });
+		return { count: orphans.length, orphans };
 	} finally {
 		socket.disconnect();
 	}
@@ -321,7 +321,7 @@ export async function listBacklinksHandler(parsed: { workspaceId?: string; docId
 	try {
 		await joinWorkspace(socket, workspaceId);
 		const wsSnap = await loadDoc(socket, workspaceId, workspaceId);
-		if (!wsSnap.missing) return text({ docId: parsed.docId, count: 0, backlinks: [] });
+		if (!wsSnap.missing) return { docId: parsed.docId, count: 0, backlinks: [] };
 		const wsDoc = new Y.Doc();
 		Y.applyUpdate(wsDoc, Buffer.from(wsSnap.missing, 'base64'));
 		const pages = getWorkspacePageEntries(wsDoc.getMap('meta'));
@@ -353,7 +353,7 @@ export async function listBacklinksHandler(parsed: { workspaceId?: string; docId
 				}
 			}
 		}
-		return text({ docId: parsed.docId, count: backlinks.length, backlinks });
+		return { docId: parsed.docId, count: backlinks.length, backlinks };
 	} finally {
 		socket.disconnect();
 	}
@@ -380,7 +380,7 @@ export async function listChildrenHandler(parsed: { workspaceId?: string; docId:
 			}
 		}
 		const snap = await loadDoc(socket, workspaceId, parsed.docId);
-		if (!snap.missing) return text({ docId: parsed.docId, children: [] });
+		if (!snap.missing) return { docId: parsed.docId, children: [] };
 		const doc = new Y.Doc();
 		Y.applyUpdate(doc, Buffer.from(snap.missing, 'base64'));
 		const blocks = doc.getMap('blocks') as Y.Map<any>;
@@ -401,7 +401,7 @@ export async function listChildrenHandler(parsed: { workspaceId?: string; docId:
 				});
 			}
 		}
-		return text({ docId: parsed.docId, count: children.length, children });
+		return { docId: parsed.docId, count: children.length, children };
 	} finally {
 		socket.disconnect();
 	}

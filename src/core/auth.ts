@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 import { loginWithPassword } from '../auth.js';
 import { loadConfig } from '../config.js';
@@ -15,5 +14,5 @@ export async function signInHandler(params: { email: string; password: string })
 	const gql = await createGraphQLClient();
 	gql.setCookie(cookieHeader);
 
-	return text({ signedIn: true });
+	return { signedIn: true };
 }

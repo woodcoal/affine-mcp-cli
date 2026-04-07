@@ -1,4 +1,3 @@
-import { text } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 
 /**
@@ -25,9 +24,9 @@ export async function updateProfileHandler(params: { name?: string; avatarUrl?: 
 		if (avatarUrl !== undefined) input.avatarUrl = avatarUrl;
 
 		const data = await gql.request<{ updateProfile: any }>(mutation, { input });
-		return text(data.updateProfile);
+		return data.updateProfile;
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -63,17 +62,17 @@ export async function updateSettingsHandler(params: {
 		if (typeof settings.receiveMentionEmail === 'boolean')
 			input.receiveMentionEmail = settings.receiveMentionEmail;
 		if (Object.keys(input).length === 0) {
-			return text({
+			return {
 				error: 'settings must include at least one of: receiveCommentEmail, receiveInvitationEmail, receiveMentionEmail'
-			});
+			};
 		}
 
 		const data = await gql.request<{ updateSettings: boolean }>(mutation, {
 			input
 		});
 
-		return text({ success: data.updateSettings });
+		return { success: data.updateSettings };
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }

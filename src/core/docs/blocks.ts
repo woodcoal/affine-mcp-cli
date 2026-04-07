@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { text, getDefaultWorkspaceId } from '../utils.js';
+import { getDefaultWorkspaceId } from '../utils.js';
 import {
 	wsUrlFromGraphQLEndpoint,
 	connectWorkspaceSocket,
@@ -31,7 +31,7 @@ export async function appendParagraphHandler(parsed: {
 		type: 'paragraph',
 		text: parsed.text
 	});
-	return text({ appended: result.appended, paragraphId: result.blockId });
+	return { appended: result.appended, paragraphId: result.blockId };
 }
 
 /**
@@ -71,14 +71,14 @@ export async function appendBlockHandler(parsed: {
 	placement?: AppendPlacement;
 }) {
 	const result = await appendBlockInternal(parsed);
-	return text({
+	return {
 		appended: result.appended,
 		blockId: result.blockId,
 		flavour: result.flavour,
 		type: result.blockType || null,
 		normalizedType: result.normalizedType,
 		legacyType: result.legacyType
-	});
+	};
 }
 
 /**
@@ -160,12 +160,12 @@ export async function moveDocHandler(parsed: {
 			pageId: parsed.docId
 		});
 
-		return text({
-			moved: true,
-			docId: parsed.docId,
-			toParentDocId: parsed.toParentDocId,
-			removedFromParent
-		});
+		return {
+				moved: true,
+				docId: parsed.docId,
+				toParentDocId: parsed.toParentDocId,
+				removedFromParent
+			};
 	} finally {
 		socket.disconnect();
 	}
@@ -204,12 +204,12 @@ export async function cleanupOrphanEmbedsHandler(parsed: {
 			if (!targetSnap.missing) orphans.push({ blockId, targetDocId: targetId });
 		}
 		if (parsed.dryRun || orphans.length === 0) {
-			return text({
-				docId: parsed.docId,
-				dryRun: parsed.dryRun ?? false,
-				orphansFound: orphans.length,
-				orphans
-			});
+			return {
+					docId: parsed.docId,
+					dryRun: parsed.dryRun ?? false,
+					orphansFound: orphans.length,
+					orphans
+				};
 		}
 		const prevSV = Y.encodeStateVector(doc);
 		for (const { blockId } of orphans) {
@@ -233,12 +233,12 @@ export async function cleanupOrphanEmbedsHandler(parsed: {
 			parsed.docId,
 			Buffer.from(delta).toString('base64')
 		);
-		return text({
-			docId: parsed.docId,
-			dryRun: false,
-			orphansRemoved: orphans.length,
-			orphans
-		});
+		return {
+				docId: parsed.docId,
+				dryRun: false,
+				orphansRemoved: orphans.length,
+				orphans
+			};
 	} finally {
 		socket.disconnect();
 	}
@@ -307,15 +307,15 @@ export async function findAndReplaceHandler(parsed: {
 				}
 			}
 		}
-		return text({
-			docId: parsed.docId,
-			search: parsed.search,
-			replace: parsed.replace,
-			dryRun: parsed.dryRun ?? false,
-			totalMatches,
-			blocksAffected: matchLog.length,
-			matches: matchLog
-		});
+		return {
+				docId: parsed.docId,
+				search: parsed.search,
+				replace: parsed.replace,
+				dryRun: parsed.dryRun ?? false,
+				totalMatches,
+				blocksAffected: matchLog.length,
+				matches: matchLog
+			};
 	} finally {
 		socket.disconnect();
 	}

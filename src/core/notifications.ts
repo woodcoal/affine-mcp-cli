@@ -1,4 +1,4 @@
-import { text } from './utils.js';
+
 import { createGraphQLClient } from '../graphqlClient.js';
 
 /**
@@ -55,9 +55,9 @@ export async function listNotificationsHandler(params: {
 			notifications = notifications.filter((n: any) => !n.read);
 		}
 
-		return text(notifications);
+		return notifications;
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }
 
@@ -76,11 +76,11 @@ export async function readAllNotificationsHandler() {
 
 		const data = await gql.request<{ readAllNotifications: boolean }>(mutation);
 
-		return text({
+		return {
 			success: data.readAllNotifications,
 			message: 'All notifications marked as read'
-		});
+		};
 	} catch (error: any) {
-		return text({ error: error.message });
+		return { error: error.message };
 	}
 }

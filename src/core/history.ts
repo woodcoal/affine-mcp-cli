@@ -1,4 +1,4 @@
-import { text, getDefaultWorkspaceId } from './utils.js';
+import { getDefaultWorkspaceId } from './utils.js';
 import { createGraphQLClient } from '../graphqlClient.js';
 
 /**
@@ -23,5 +23,5 @@ export async function listHistoriesHandler(params: {
 		take,
 		before
 	});
-	return text(data.workspace.histories);
+	return data.workspace.histories;
 }

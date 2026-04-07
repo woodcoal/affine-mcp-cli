@@ -10,7 +10,7 @@ export function registerAccessTokenTools(server: McpServer) {
       description: "List personal access tokens (metadata).",
       inputSchema: {},
     },
-    accessTokens.listAccessTokensHandler,
+    accessTokens.listAccessTokensHandler as any,
   );
 
   server.registerTool(
@@ -23,7 +23,7 @@ export function registerAccessTokenTools(server: McpServer) {
         expiresAt: z.string().optional(),
       },
     },
-    accessTokens.generateAccessTokenHandler,
+    accessTokens.generateAccessTokenHandler as any,
   );
 
   server.registerTool(
@@ -35,6 +35,6 @@ export function registerAccessTokenTools(server: McpServer) {
         id: z.string(),
       },
     },
-    accessTokens.revokeAccessTokenHandler,
+    accessTokens.revokeAccessTokenHandler as any,
   );
 }

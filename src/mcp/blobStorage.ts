@@ -15,7 +15,7 @@ export function registerBlobTools(server: McpServer) {
         contentType: z.string().optional().describe("MIME type"),
       },
     },
-    blobStorage.uploadBlobHandler,
+    blobStorage.uploadBlobHandler as any,
   );
 
   server.registerTool(
@@ -29,7 +29,7 @@ export function registerBlobTools(server: McpServer) {
         permanently: z.boolean().optional().describe("Delete permanently"),
       },
     },
-    blobStorage.deleteBlobHandler,
+    blobStorage.deleteBlobHandler as any,
   );
 
   server.registerTool(
@@ -41,6 +41,6 @@ export function registerBlobTools(server: McpServer) {
         workspaceId: z.string().describe("Workspace ID"),
       },
     },
-    blobStorage.cleanupBlobsHandler,
+    blobStorage.cleanupBlobsHandler as any,
   );
 }
